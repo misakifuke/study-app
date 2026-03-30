@@ -2,19 +2,18 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Camera & Draw FIX</title>
+<title>問題登録</title>
 <style>
   body { text-align: center; }
 
   #container {
     position: relative;
-    width: 100%;
-    max-width: 400px;
-    margin: auto;
+    display: inline-block;
   }
 
   video, canvas {
     width: 100%;
+    max-width: 400px;
     display: block;
   }
 
@@ -23,11 +22,22 @@
     top: 0;
     left: 0;
   }
+
+  button {
+    margin: 5px;
+  }
 </style>
 </head>
 <body>
 
-<h2>カメラ＋手書き（修正版）</h2>
+<h2>問題登録</h2>
+
+<p id="mode">モード：問題</p>
+
+<button onclick="setMode('question')">問題モード</button>
+<button onclick="setMode('answer')">答えモード</button>
+
+<br><br>
 
 <button onclick="startCamera()">カメラ起動</button>
 <button onclick="takePhoto()">撮影</button>
@@ -39,14 +49,27 @@
   <canvas id="canvas"></canvas>
 </div>
 
+<p>問題枚数：<span id="qCount">0</span></p>
+<p>答え枚数：<span id="aCount">0</span></p>
+
 <script>
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-let drawing = false;
+let mode = "question";
 
-// カメラ起動
+let questions = [];
+let answers = [];
+
+// モード切り替え
+function setMode(m) {
+  mode = m;
+  document.getElementById("mode").innerText = 
+    m === "question" ? "モード：問題" : "モード：答え";
+}
+
+// カメラ
 async function startCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: "environment" }
@@ -54,24 +77,32 @@ async function startCamera() {
   video.srcObject = stream;
 
   video.onloadedmetadata = () => {
-    const width = video.videoWidth;
-    const height = video.videoHeight;
-
-    canvas.width = width;
-    canvas.height = height;
-
-    // ★ここが超重要（表示サイズも揃える）
-    canvas.style.width = width + "px";
-    canvas.style.height = height + "px";
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
   };
 }
 
 // 撮影
 function takePhoto() {
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  let img = canvas.toDataURL("image/png");
+
+  if (mode === "question") {
+    questions.push(img);
+    document.getElementById("qCount").innerText = questions.length;
+  } else {
+    answers.push(img);
+    document.getElementById("aCount").innerText = answers.length;
+  }
+
+  console.log("問題", questions);
+  console.log("答え", answers);
 }
 
-// 描画
+// 手書き
+let drawing = false;
+
 canvas.addEventListener("touchstart", (e) => {
   drawing = true;
   draw(e);
