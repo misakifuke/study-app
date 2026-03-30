@@ -2,28 +2,32 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Camera & Draw</title>
+<title>Camera & Draw FIX</title>
 <style>
   body { text-align: center; }
+
   #container {
     position: relative;
-    display: inline-block;
-  }
-  video, canvas {
     width: 100%;
     max-width: 400px;
-    border: 2px solid black;
+    margin: auto;
   }
+
+  video, canvas {
+    width: 100%;
+    display: block;
+  }
+
   canvas {
     position: absolute;
-    left: 0;
     top: 0;
+    left: 0;
   }
 </style>
 </head>
 <body>
 
-<h2>カメラ＋手書き</h2>
+<h2>カメラ＋手書き（修正版）</h2>
 
 <button onclick="startCamera()">カメラ起動</button>
 <button onclick="takePhoto()">撮影</button>
@@ -44,12 +48,21 @@ let drawing = false;
 
 // カメラ起動
 async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
+  });
   video.srcObject = stream;
 
   video.onloadedmetadata = () => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    // ★ここが超重要（表示サイズも揃える）
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
   };
 }
 
@@ -64,7 +77,10 @@ canvas.addEventListener("touchstart", (e) => {
   draw(e);
 });
 
-canvas.addEventListener("touchend", () => drawing = false);
+canvas.addEventListener("touchend", () => {
+  drawing = false;
+  ctx.beginPath();
+});
 
 canvas.addEventListener("touchmove", (e) => {
   if (!drawing) return;
@@ -76,16 +92,17 @@ function draw(e) {
 
   const rect = canvas.getBoundingClientRect();
 
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+  const x = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
+  const y = (e.touches[0].clientY - rect.top) * (canvas.height / rect.height);
 
-  const x = (e.touches[0].clientX - rect.left) * scaleX;
-  const y = (e.touches[0].clientY - rect.top) * scaleY;
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
 
-  ctx.fillStyle = "red";
+  ctx.lineTo(x, y);
+  ctx.stroke();
+
   ctx.beginPath();
-  ctx.arc(x, y, 5, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(x, y);
 }
 </script>
 
