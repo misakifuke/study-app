@@ -5,10 +5,19 @@
 <title>Camera & Draw</title>
 <style>
   body { text-align: center; }
+  #container {
+    position: relative;
+    display: inline-block;
+  }
   video, canvas {
     width: 100%;
     max-width: 400px;
     border: 2px solid black;
+  }
+  canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
   }
 </style>
 </head>
@@ -17,12 +26,14 @@
 <h2>カメラ＋手書き</h2>
 
 <button onclick="startCamera()">カメラ起動</button>
+<button onclick="takePhoto()">撮影</button>
+
 <br><br>
 
-<video id="video" autoplay playsinline></video>
-<br>
-
-<canvas id="canvas"></canvas>
+<div id="container">
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
+</div>
 
 <script>
 const video = document.getElementById("video");
@@ -42,22 +53,40 @@ async function startCamera() {
   };
 }
 
-// 描画処理
-canvas.addEventListener("touchstart", () => drawing = true);
+// 撮影
+function takePhoto() {
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+}
+
+// 描画
+canvas.addEventListener("touchstart", (e) => {
+  drawing = true;
+  draw(e);
+});
+
 canvas.addEventListener("touchend", () => drawing = false);
 
 canvas.addEventListener("touchmove", (e) => {
   if (!drawing) return;
+  draw(e);
+});
+
+function draw(e) {
+  e.preventDefault();
 
   const rect = canvas.getBoundingClientRect();
-  const x = e.touches[0].clientX - rect.left;
-  const y = e.touches[0].clientY - rect.top;
+
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  const x = (e.touches[0].clientX - rect.left) * scaleX;
+  const y = (e.touches[0].clientY - rect.top) * scaleY;
 
   ctx.fillStyle = "red";
   ctx.beginPath();
   ctx.arc(x, y, 5, 0, Math.PI * 2);
   ctx.fill();
-});
+}
 </script>
 
 </body>
