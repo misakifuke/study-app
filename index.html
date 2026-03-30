@@ -52,6 +52,11 @@
 <p>問題枚数：<span id="qCount">0</span></p>
 <p>答え枚数：<span id="aCount">0</span></p>
 
+<br>
+
+<button onclick="saveData()">保存</button>
+<button onclick="resetData()">リセット</button>
+
 <script>
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
@@ -95,9 +100,21 @@ function takePhoto() {
     answers.push(img);
     document.getElementById("aCount").innerText = answers.length;
   }
+}
 
-  console.log("問題", questions);
-  console.log("答え", answers);
+// 保存（今は仮）
+function saveData() {
+  alert("保存！（まだローカルのみ）");
+  console.log("保存データ", questions, answers);
+}
+
+// リセット
+function resetData() {
+  questions = [];
+  answers = [];
+  document.getElementById("qCount").innerText = 0;
+  document.getElementById("aCount").innerText = 0;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
 // 手書き
