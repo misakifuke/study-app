@@ -1,37 +1,43 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>問題登録</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>問題登録</title>
 
-  <style>
-    body {
-      text-align: center;
-    }
+<style>
+body {
+  text-align: center;
+  font-family: sans-serif;
+}
 
-    #container {
-      position: relative;
-      display: inline-block;
-    }
+#container {
+  position: relative;
+  display: inline-block;
+}
 
-    video, canvas {
-      width: 100%;
-      max-width: 400px;
-      display: block;
-    }
+video, canvas {
+  width: 100%;
+  max-width: 400px;
+  display: block;
+}
 
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
 
-    button {
-      margin-top: 10px;
-      font-size: 18px;
-    }
-  </style>
+button {
+  margin: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+}
+
+.controls {
+  margin-top: 10px;
+}
+</style>
 </head>
 
 <body>
@@ -43,74 +49,110 @@
   <canvas id="canvas"></canvas>
 </div>
 
-<br>
-<button onclick="saveImage()">保存</button>
+<div class="controls">
+  <button onclick="startCamera()">撮影開始</button>
+  <button onclick="capture()">撮影</button>
+  <button onclick="save()">保存</button>
+  <button onclick="send()">送信</button>
+</div>
+
+<div class="controls">
+  <button onclick="setMode('question')">問題モード</button>
+  <button onclick="setMode('answer')">解答モード</button>
+</div>
+
+<p>問題数: <span id="qCount">0</span></p>
+<p>解答数: <span id="aCount">0</span></p>
 
 <script>
 const GAS_URL = "https://script.google.com/macros/s/AKfycbziof54Gsx2-44mVD5Rh3ubSaaSTvSSiV1AohWkMVhbgEJb5yHw41Z4qCCXZ1bTV2L7/exec";
 
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+
+let mode = "question";
+let images = [];
+
+let qCount = 0;
+let aCount = 0;
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  video.srcObject = stream;
+}
+
+function capture() {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+
+  let data = canvas.toDataURL("image/png");
+  images.push(data);
+
+  if (mode === "question") {
+    qCount++;
+    document.getElementById("qCount").textContent = qCount;
+  } else {
+    aCount++;
+    document.getElementById("aCount").textContent = aCount;
+  }
+}
+
+function save() {
+  alert("保存済み！（まだローカル）");
+}
+
+async function send() {
+  if (images.length === 0) {
+    alert("画像がない！");
+    return;
+  }
+
+  await fetch(GAS_URL, {
+    method: "POST",
+    body: JSON.stringify({ images })
+  });
+
+  alert("ドライブに送信完了！");
+  images = [];
+}
+
+function setMode(m) {
+  mode = m;
+  alert("モード: " + m);
+}
+
+/* ===== 手書き機能 ===== */
 
 let drawing = false;
 
-// カメラ起動
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => {
-    video.srcObject = stream;
-  });
+canvas.addEventListener("mousedown", () => drawing = true);
+canvas.addEventListener("mouseup", () => drawing = false);
+canvas.addEventListener("mousemove", draw);
 
-// サイズ調整
-video.addEventListener("loadedmetadata", () => {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-});
-
-// 描画
-canvas.addEventListener("touchstart", (e) => {
-  drawing = true;
-  draw(e);
-});
-
-canvas.addEventListener("touchend", () => {
-  drawing = false;
-  ctx.beginPath();
-});
-
-canvas.addEventListener("touchmove", (e) => {
-  if (!drawing) return;
-  draw(e);
-});
+canvas.addEventListener("touchstart", () => drawing = true);
+canvas.addEventListener("touchend", () => drawing = false);
+canvas.addEventListener("touchmove", draw);
 
 function draw(e) {
-  e.preventDefault();
+  if (!drawing) return;
 
-  const rect = canvas.getBoundingClientRect();
-  const x = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
-  const y = (e.touches[0].clientY - rect.top) * (canvas.height / rect.height);
+  let rect = canvas.getBoundingClientRect();
+
+  let x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  let y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
 
   ctx.lineWidth = 4;
   ctx.lineCap = "round";
 
   ctx.lineTo(x, y);
   ctx.stroke();
+
   ctx.beginPath();
   ctx.moveTo(x, y);
-}
 
-// 保存（ここでDrive送信）
-async function saveImage() {
-  const image = canvas.toDataURL("image/png");
-
-  await fetch(GAS_URL, {
-    method: "POST",
-    body: JSON.stringify({
-      images: [image]
-    })
-  });
-
-  alert("保存完了！（Driveに送ったよ）");
+  e.preventDefault();
 }
 </script>
 
