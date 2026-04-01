@@ -16,15 +16,14 @@ video, canvas {
   max-width: 400px;
 }
 
+canvas {
+  border: 1px solid black;
+  touch-action: none;
+}
+
 button {
   margin: 5px;
   padding: 10px;
-  font-size: 16px;
-}
-
-#canvas {
-  border: 1px solid black;
-  touch-action: none;
 }
 </style>
 </head>
@@ -33,8 +32,7 @@ button {
 
 <h1>問題登録</h1>
 
-<video id="video" autoplay playsinline></video>
-<br>
+<video id="video" autoplay playsinline></video><br>
 
 <button onclick="startCamera()">カメラ起動</button>
 <button onclick="takePhoto()">撮影</button>
@@ -58,6 +56,14 @@ button {
 <h2>問題数・答え数</h2>
 <p id="count">問題: 0 / 答え: 0</p>
 
+<hr>
+
+<h2>復習</h2>
+<button onclick="loadReview()">復習スタート</button>
+<br><br>
+<img id="reviewImage" width="300"><br>
+<button onclick="showAnswer()">答え</button>
+
 <script>
 let video = document.getElementById("video");
 let canvas = document.getElementById("canvas");
@@ -68,10 +74,12 @@ let drawing = false;
 let problemCount = 0;
 let answerCount = 0;
 
-// ⭐ あなたのURL（ここはもうOK）
+let reviewData = [];
+let currentIndex = 0;
+
 const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
 
-// カメラ起動（外カメラ）
+// カメラ
 async function startCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: "environment" }
@@ -79,38 +87,40 @@ async function startCamera() {
   video.srcObject = stream;
 }
 
-// 撮影
+// 撮影（ズレ修正ポイント①）
 function takePhoto() {
+  const rect = video.getBoundingClientRect();
+
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
+
   ctx.drawImage(video, 0, 0);
 }
+
+// 描画（ズレ完全修正）
+canvas.addEventListener("touchmove", e => {
+  if (!drawing) return;
+
+  const rect = canvas.getBoundingClientRect();
+
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  const x = (e.touches[0].clientX - rect.left) * scaleX;
+  const y = (e.touches[0].clientY - rect.top) * scaleY;
+
+  ctx.fillRect(x, y, 3, 3);
+
+  e.preventDefault();
+});
+
+canvas.addEventListener("touchstart", () => drawing = true);
+canvas.addEventListener("touchend", () => drawing = false);
 
 // 撮り直し
 function resetPhoto() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
-
-// 描画
-canvas.addEventListener("touchstart", e => {
-  drawing = true;
-});
-
-canvas.addEventListener("touchend", e => {
-  drawing = false;
-});
-
-canvas.addEventListener("touchmove", e => {
-  if (!drawing) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const x = e.touches[0].clientX - rect.left;
-  const y = e.touches[0].clientY - rect.top;
-
-  ctx.fillRect(x, y, 3, 3);
-
-  e.preventDefault(); // ←スクロール防止
-});
 
 // 送信
 function sendData() {
@@ -124,7 +134,7 @@ function sendData() {
     })
   })
   .then(() => {
-    alert("送信成功！");
+    alert("送信成功");
 
     problemCount++;
     if (mode !== "normal") answerCount++;
@@ -135,6 +145,39 @@ function sendData() {
     resetPhoto();
   })
   .catch(() => alert("送信失敗"));
+}
+
+// ===== 復習機能 =====
+
+// データ取得
+function loadReview() {
+  fetch(GAS_URL)
+    .then(res => res.json())
+    .then(data => {
+      reviewData = data;
+      currentIndex = 0;
+      showQuestion();
+    });
+}
+
+// 問題表示
+function showQuestion() {
+  if (reviewData.length === 0) return;
+
+  document.getElementById("reviewImage").src =
+    reviewData[currentIndex].image;
+}
+
+// 答え表示
+function showAnswer() {
+  currentIndex++;
+
+  if (currentIndex >= reviewData.length) {
+    alert("終了！");
+    return;
+  }
+
+  showQuestion();
 }
 </script>
 
