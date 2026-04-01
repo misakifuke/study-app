@@ -3,28 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>問題登録アプリ</title>
+<title>神・問題アプリ</title>
 
 <style>
-body {
-  text-align: center;
-  font-family: sans-serif;
-}
-
-video, canvas {
-  width: 100%;
-  max-width: 400px;
-}
-
-canvas {
-  border: 1px solid black;
-  touch-action: none;
-}
-
-button {
-  margin: 5px;
-  padding: 10px;
-}
+body { text-align: center; font-family: sans-serif; }
+video, canvas { width: 100%; max-width: 400px; }
+canvas { border: 1px solid black; touch-action: none; }
+button { margin: 5px; padding: 10px; }
 </style>
 </head>
 
@@ -44,38 +29,43 @@ button {
 
 <br>
 
+<h2>撮影モード</h2>
+<button onclick="captureMode='question'">問題</button>
+<button onclick="captureMode='answer'">答え</button>
+
+<br>
+
 <button onclick="sendData()">送信</button>
 
 <hr>
 
-<h2>モード</h2>
-<button onclick="mode='normal'">通常</button>
-<button onclick="mode='plus'">＋</button>
-<button onclick="mode='alpha'">α</button>
-
-<h2>問題数・答え数</h2>
+<h2>統計</h2>
 <p id="count">問題: 0 / 答え: 0</p>
 
 <hr>
 
 <h2>復習</h2>
-<button onclick="loadReview()">復習スタート</button>
-<br><br>
+<button onclick="loadReview()">開始</button><br><br>
+
 <img id="reviewImage" width="300"><br>
-<button onclick="showAnswer()">答え</button>
+
+<button onclick="showAnswer()">答えを見る</button>
+<button onclick="nextQuestion()">次へ</button>
 
 <script>
 let video = document.getElementById("video");
 let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
 
-let mode = "normal";
 let drawing = false;
+let captureMode = "question";
+
 let problemCount = 0;
 let answerCount = 0;
 
 let reviewData = [];
 let currentIndex = 0;
+let showingAnswer = false;
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
 
@@ -87,22 +77,18 @@ async function startCamera() {
   video.srcObject = stream;
 }
 
-// 撮影（ズレ修正ポイント①）
+// 撮影
 function takePhoto() {
-  const rect = video.getBoundingClientRect();
-
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-
   ctx.drawImage(video, 0, 0);
 }
 
-// 描画（ズレ完全修正）
+// 描画（ズレ修正済み）
 canvas.addEventListener("touchmove", e => {
   if (!drawing) return;
 
   const rect = canvas.getBoundingClientRect();
-
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
 
@@ -117,12 +103,12 @@ canvas.addEventListener("touchmove", e => {
 canvas.addEventListener("touchstart", () => drawing = true);
 canvas.addEventListener("touchend", () => drawing = false);
 
-// 撮り直し
+// リセット
 function resetPhoto() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// 送信
+// 送信（ここが進化ポイント🔥）
 function sendData() {
   const image = canvas.toDataURL("image/png");
 
@@ -130,24 +116,23 @@ function sendData() {
     method: "POST",
     body: JSON.stringify({
       image: image,
-      mode: mode
+      type: captureMode
     })
   })
   .then(() => {
-    alert("送信成功");
+    alert("保存成功");
 
-    problemCount++;
-    if (mode !== "normal") answerCount++;
+    if (captureMode === "question") problemCount++;
+    else answerCount++;
 
     document.getElementById("count").innerText =
       "問題: " + problemCount + " / 答え: " + answerCount;
 
     resetPhoto();
-  })
-  .catch(() => alert("送信失敗"));
+  });
 }
 
-// ===== 復習機能 =====
+// ===== 復習 =====
 
 // データ取得
 function loadReview() {
@@ -162,21 +147,25 @@ function loadReview() {
 
 // 問題表示
 function showQuestion() {
-  if (reviewData.length === 0) return;
-
+  showingAnswer = false;
   document.getElementById("reviewImage").src =
-    reviewData[currentIndex].image;
+    reviewData[currentIndex].question;
 }
 
 // 答え表示
 function showAnswer() {
-  currentIndex++;
+  showingAnswer = true;
+  document.getElementById("reviewImage").src =
+    reviewData[currentIndex].answer;
+}
 
+// 次へ
+function nextQuestion() {
+  currentIndex++;
   if (currentIndex >= reviewData.length) {
     alert("終了！");
     return;
   }
-
   showQuestion();
 }
 </script>
