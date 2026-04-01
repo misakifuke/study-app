@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>神・問題アプリ</title>
+<title>完全版アプリ</title>
 
 <style>
-body { text-align: center; font-family: sans-serif; }
-video, canvas { width: 100%; max-width: 400px; }
-canvas { border: 1px solid black; touch-action: none; }
-button { margin: 5px; padding: 10px; }
+body { text-align:center; font-family:sans-serif; }
+video, canvas { width:100%; max-width:400px; }
+canvas { border:1px solid black; touch-action:none; }
+button { margin:5px; padding:10px; }
 </style>
 </head>
 
@@ -18,29 +18,18 @@ button { margin: 5px; padding: 10px; }
 <h1>問題登録</h1>
 
 <video id="video" autoplay playsinline></video><br>
-
-<button onclick="startCamera()">カメラ起動</button>
+<button onclick="startCamera()">カメラ</button>
 <button onclick="takePhoto()">撮影</button>
-<button onclick="resetPhoto()">撮り直し</button>
-
-<br><br>
+<button onclick="addPage()">追加</button>
+<button onclick="resetAll()">リセット</button>
 
 <canvas id="canvas"></canvas>
 
-<br>
-
-<h2>撮影モード</h2>
-<button onclick="captureMode='question'">問題</button>
-<button onclick="captureMode='answer'">答え</button>
-
-<br>
+<h2>モード</h2>
+<button onclick="mode='question'">問題</button>
+<button onclick="mode='answer'">答え</button>
 
 <button onclick="sendData()">送信</button>
-
-<hr>
-
-<h2>統計</h2>
-<p id="count">問題: 0 / 答え: 0</p>
 
 <hr>
 
@@ -48,125 +37,121 @@ button { margin: 5px; padding: 10px; }
 <button onclick="loadReview()">開始</button><br><br>
 
 <img id="reviewImage" width="300"><br>
-
-<button onclick="showAnswer()">答えを見る</button>
-<button onclick="nextQuestion()">次へ</button>
+<button onclick="nextImage()">次のページ</button>
+<button onclick="nextSet()">次の問題</button>
 
 <script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
+
 let video = document.getElementById("video");
 let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
 
-let drawing = false;
-let captureMode = "question";
+let drawing=false;
+let mode="question";
 
-let problemCount = 0;
-let answerCount = 0;
-
-let reviewData = [];
-let currentIndex = 0;
-let showingAnswer = false;
-
-const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
+let images=[];
 
 // カメラ
-async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" }
-  });
-  video.srcObject = stream;
+async function startCamera(){
+ const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+ video.srcObject = stream;
 }
 
 // 撮影
-function takePhoto() {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0);
+function takePhoto(){
+ canvas.width = video.videoWidth;
+ canvas.height = video.videoHeight;
+ ctx.drawImage(video,0,0);
 }
 
-// 描画（ズレ修正済み）
-canvas.addEventListener("touchmove", e => {
-  if (!drawing) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-
-  const x = (e.touches[0].clientX - rect.left) * scaleX;
-  const y = (e.touches[0].clientY - rect.top) * scaleY;
-
-  ctx.fillRect(x, y, 3, 3);
-
-  e.preventDefault();
-});
-
-canvas.addEventListener("touchstart", () => drawing = true);
-canvas.addEventListener("touchend", () => drawing = false);
+// ページ追加
+function addPage(){
+ const img = canvas.toDataURL("image/png");
+ images.push(img);
+ alert("追加："+images.length+"枚");
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+}
 
 // リセット
-function resetPhoto() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function resetAll(){
+ images=[];
+ ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
-// 送信（ここが進化ポイント🔥）
-function sendData() {
-  const image = canvas.toDataURL("image/png");
+// 描画（ズレ修正）
+canvas.addEventListener("touchmove",e=>{
+ if(!drawing)return;
+ const rect=canvas.getBoundingClientRect();
+ const scaleX=canvas.width/rect.width;
+ const scaleY=canvas.height/rect.height;
+ const x=(e.touches[0].clientX-rect.left)*scaleX;
+ const y=(e.touches[0].clientY-rect.top)*scaleY;
+ ctx.fillRect(x,y,3,3);
+ e.preventDefault();
+});
+canvas.addEventListener("touchstart",()=>drawing=true);
+canvas.addEventListener("touchend",()=>drawing=false);
 
-  fetch(GAS_URL, {
-    method: "POST",
-    body: JSON.stringify({
-      image: image,
-      type: captureMode
-    })
+// 送信
+function sendData(){
+ fetch(GAS_URL,{
+  method:"POST",
+  body:JSON.stringify({
+   images:images,
+   type:mode
   })
-  .then(() => {
-    alert("保存成功");
-
-    if (captureMode === "question") problemCount++;
-    else answerCount++;
-
-    document.getElementById("count").innerText =
-      "問題: " + problemCount + " / 答え: " + answerCount;
-
-    resetPhoto();
-  });
+ }).then(()=>{
+  alert("保存完了");
+  resetAll();
+ });
 }
 
 // ===== 復習 =====
+let reviewData=[];
+let setIndex=0;
+let pageIndex=0;
+let showingAnswer=false;
 
-// データ取得
-function loadReview() {
-  fetch(GAS_URL)
-    .then(res => res.json())
-    .then(data => {
-      reviewData = data;
-      currentIndex = 0;
-      showQuestion();
-    });
+function loadReview(){
+ fetch(GAS_URL)
+ .then(r=>r.json())
+ .then(data=>{
+  reviewData=data;
+  setIndex=0;
+  pageIndex=0;
+  showingAnswer=false;
+  showImage();
+ });
 }
 
-// 問題表示
-function showQuestion() {
-  showingAnswer = false;
-  document.getElementById("reviewImage").src =
-    reviewData[currentIndex].question;
+function showImage(){
+ if(reviewData.length===0)return;
+ const set=reviewData[setIndex];
+ const imgs=showingAnswer?set.answer:set.question;
+ document.getElementById("reviewImage").src=imgs[pageIndex];
 }
 
-// 答え表示
-function showAnswer() {
-  showingAnswer = true;
-  document.getElementById("reviewImage").src =
-    reviewData[currentIndex].answer;
+function nextImage(){
+ const set=reviewData[setIndex];
+ const imgs=showingAnswer?set.answer:set.question;
+ pageIndex++;
+ if(pageIndex>=imgs.length){
+  pageIndex=0;
+  showingAnswer=!showingAnswer;
+ }
+ showImage();
 }
 
-// 次へ
-function nextQuestion() {
-  currentIndex++;
-  if (currentIndex >= reviewData.length) {
-    alert("終了！");
-    return;
-  }
-  showQuestion();
+function nextSet(){
+ setIndex++;
+ pageIndex=0;
+ showingAnswer=false;
+ if(setIndex>=reviewData.length){
+  alert("終了！");
+  return;
+ }
+ showImage();
 }
 </script>
 
