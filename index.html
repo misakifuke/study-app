@@ -6,115 +6,137 @@
 <title>問題登録</title>
 
 <style>
-body { text-align: center; font-family: sans-serif; }
-#container { position: relative; display: inline-block; width: 100%; max-width: 400px; }
-video, canvas { width: 100%; display: block; }
-canvas { position: absolute; top: 0; left: 0; }
-button { margin: 6px; padding: 10px; }
+body {
+  text-align: center;
+  font-family: sans-serif;
+}
+
+#container {
+  position: relative;
+  display: inline-block;
+}
+
+video, canvas {
+  width: 100%;
+  max-width: 400px;
+  display: block;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+button {
+  margin: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>問題登録</h2>
+<h1>問題登録</h1>
 
 <div id="container">
-<video id="video" autoplay playsinline></video>
-<canvas id="canvas"></canvas>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
 </div>
 
 <br>
 
-<button onclick="startCamera()">カメラ</button>
+<button onclick="startCamera()">撮影開始</button>
 <button onclick="capture()">撮影</button>
-<button onclick="next()">次へ</button>
-<button onclick="send()">送信</button>
+<button onclick="save()">保存</button>
 
-<br>
+<br><br>
 
 <button onclick="setMode('question')">問題</button>
-<button onclick="setMode('answer')">解答</button>
-
-<p>問題数: <span id="qCount">1</span></p>
-<p>答え数: <span id="aCount">0</span></p>
+<button onclick="setMode('answer')">答え</button>
 
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbziof54Gsx2-44mVD5Rh3ubSaaSTvSSiV1AohWkMVhbgEJb5yHw41Z4qCCXZ1bTV2L7/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
 
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
 
+let stream;
+let drawing = false;
 let mode = "question";
 
-// データ構造（重要）
-let data = [
-  { question: [], answers: [] }
-];
-
-let current = 0;
-
-async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" }
-  });
-  video.srcObject = stream;
+function setMode(m){
+  mode = m;
+  alert("モード：" + m);
 }
 
-function resize() {
-  const rect = video.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
+async function startCamera() {
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" },
+    audio: false
+  });
+  video.srcObject = stream;
+
+  video.onloadedmetadata = () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  };
 }
 
 function capture() {
-  resize();
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-
-  const img = canvas.toDataURL("image/png");
-
-  if (mode === "question") {
-    data[current].question.push(img);
-  } else {
-    data[current].answers.push(img);
-    updateAnswerCount();
-  }
 }
 
-function next() {
-  data.push({ question: [], answers: [] });
-  current++;
-  updateQuestionCount();
-  updateAnswerCount();
-}
+function save() {
+  let image = canvas.toDataURL("image/png");
 
-function setMode(m) {
-  mode = m;
-  alert("モード: " + m);
-}
-
-function updateQuestionCount() {
-  document.getElementById("qCount").textContent = data.length;
-}
-
-function updateAnswerCount() {
-  document.getElementById("aCount").textContent = data[current].answers.length;
-}
-
-async function send() {
-  let images = [];
-
-  data.forEach(set => {
-    images = images.concat(set.question, set.answers);
-  });
-
-  await fetch(GAS_URL, {
+  fetch(GAS_URL, {
     method: "POST",
-    body: JSON.stringify({ images })
+    body: JSON.stringify({
+      image: image,
+      mode: mode
+    })
+  })
+  .then(res => res.text())
+  .then(data => {
+    alert("保存成功！");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   });
+}
 
-  alert("送信完了");
+canvas.addEventListener("mousedown", () => drawing = true);
+canvas.addEventListener("mouseup", () => {
+  drawing = false;
+  ctx.beginPath();
+});
+canvas.addEventListener("mousemove", draw);
+
+canvas.addEventListener("touchstart", () => drawing = true);
+canvas.addEventListener("touchend", () => {
+  drawing = false;
+  ctx.beginPath();
+});
+canvas.addEventListener("touchmove", draw);
+
+function draw(e) {
+  if (!drawing) return;
+
+  let rect = canvas.getBoundingClientRect();
+  let x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  let y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+
+  x *= canvas.width / rect.width;
+  y *= canvas.height / rect.height;
+
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y);
 }
 </script>
 
