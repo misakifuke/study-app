@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>問題登録</title>
+<title>問題登録アプリ</title>
 
 <style>
 body {
@@ -11,27 +11,20 @@ body {
   font-family: sans-serif;
 }
 
-#container {
-  position: relative;
-  display: inline-block;
-}
-
 video, canvas {
   width: 100%;
   max-width: 400px;
-  display: block;
-}
-
-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
 }
 
 button {
-  margin: 10px;
-  padding: 10px 20px;
+  margin: 5px;
+  padding: 10px;
   font-size: 16px;
+}
+
+#canvas {
+  border: 1px solid black;
+  touch-action: none;
 }
 </style>
 </head>
@@ -40,57 +33,88 @@ button {
 
 <h1>問題登録</h1>
 
-<div id="container">
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
-</div>
-
+<video id="video" autoplay playsinline></video>
 <br>
 
-<button onclick="startCamera()">撮影開始</button>
-<button onclick="capture()">撮影</button>
-<button onclick="save()">保存</button>
+<button onclick="startCamera()">カメラ起動</button>
+<button onclick="takePhoto()">撮影</button>
+<button onclick="resetPhoto()">撮り直し</button>
 
 <br><br>
 
-<button onclick="setMode('question')">問題</button>
-<button onclick="setMode('answer')">答え</button>
+<canvas id="canvas"></canvas>
+
+<br>
+
+<button onclick="sendData()">送信</button>
+
+<hr>
+
+<h2>モード</h2>
+<button onclick="mode='normal'">通常</button>
+<button onclick="mode='plus'">＋</button>
+<button onclick="mode='alpha'">α</button>
+
+<h2>問題数・答え数</h2>
+<p id="count">問題: 0 / 答え: 0</p>
 
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
-
 let video = document.getElementById("video");
 let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
 
-let stream;
+let mode = "normal";
 let drawing = false;
-let mode = "question";
+let problemCount = 0;
+let answerCount = 0;
 
-function setMode(m){
-  mode = m;
-  alert("モード：" + m);
-}
+// ⭐ あなたのURL（ここはもうOK）
+const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
 
+// カメラ起動（外カメラ）
 async function startCamera() {
-  stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" },
-    audio: false
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
   });
   video.srcObject = stream;
-
-  video.onloadedmetadata = () => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-  };
 }
 
-function capture() {
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+// 撮影
+function takePhoto() {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
 }
 
-function save() {
-  let image = canvas.toDataURL("image/png");
+// 撮り直し
+function resetPhoto() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// 描画
+canvas.addEventListener("touchstart", e => {
+  drawing = true;
+});
+
+canvas.addEventListener("touchend", e => {
+  drawing = false;
+});
+
+canvas.addEventListener("touchmove", e => {
+  if (!drawing) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.touches[0].clientX - rect.left;
+  const y = e.touches[0].clientY - rect.top;
+
+  ctx.fillRect(x, y, 3, 3);
+
+  e.preventDefault(); // ←スクロール防止
+});
+
+// 送信
+function sendData() {
+  const image = canvas.toDataURL("image/png");
 
   fetch(GAS_URL, {
     method: "POST",
@@ -99,44 +123,18 @@ function save() {
       mode: mode
     })
   })
-  .then(res => res.text())
-  .then(data => {
-    alert("保存成功！");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  });
-}
+  .then(() => {
+    alert("送信成功！");
 
-canvas.addEventListener("mousedown", () => drawing = true);
-canvas.addEventListener("mouseup", () => {
-  drawing = false;
-  ctx.beginPath();
-});
-canvas.addEventListener("mousemove", draw);
+    problemCount++;
+    if (mode !== "normal") answerCount++;
 
-canvas.addEventListener("touchstart", () => drawing = true);
-canvas.addEventListener("touchend", () => {
-  drawing = false;
-  ctx.beginPath();
-});
-canvas.addEventListener("touchmove", draw);
+    document.getElementById("count").innerText =
+      "問題: " + problemCount + " / 答え: " + answerCount;
 
-function draw(e) {
-  if (!drawing) return;
-
-  let rect = canvas.getBoundingClientRect();
-  let x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-  let y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-
-  x *= canvas.width / rect.width;
-  y *= canvas.height / rect.height;
-
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-
-  ctx.lineTo(x, y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x, y);
+    resetPhoto();
+  })
+  .catch(() => alert("送信失敗"));
 }
 </script>
 
