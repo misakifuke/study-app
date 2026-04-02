@@ -1,194 +1,215 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>完全体アプリ</title>
+<title>勉強アプリ</title>
 
 <style>
-body { text-align:center; font-family:sans-serif; }
-video, canvas { width:100%; max-width:400px; }
-canvas { border:1px solid black; touch-action:none; }
-button { margin:5px; padding:10px; }
+body {
+  font-family: sans-serif;
+  text-align: center;
+  margin: 0;
+}
+
+video, canvas, img {
+  width: 100%;
+  max-width: 400px;
+}
+
+button {
+  margin: 5px;
+  padding: 10px;
+  font-size: 16px;
+}
+
+#drawCanvas {
+  border: 1px solid black;
+  touch-action: none;
+}
 </style>
 </head>
 
 <body>
 
-<h1>問題登録</h1>
+<h2>📚 勉強アプリ</h2>
 
-<video id="video" autoplay playsinline></video><br>
+<!-- モード -->
+<div>
+  <button onclick="setMode('question')">問題</button>
+  <button onclick="setMode('answer')">答え</button>
+</div>
 
+<!-- カメラ -->
+<video id="video" autoplay playsinline></video>
+<br>
 <button onclick="startCamera()">カメラ起動</button>
-<button onclick="takePhoto()">撮影</button>
+<button onclick="capture()">撮影</button>
 
-<canvas id="canvas"></canvas>
-
+<!-- 描画 -->
+<canvas id="drawCanvas"></canvas>
 <br>
 
-<button onclick="addPage()">このページ追加</button>
-<button onclick="resetCanvas()">描き直し</button>
+<!-- 一時保存 -->
+<button onclick="saveData()">追加</button>
 
-<h2 id="status">問題:0枚 / 答え:0枚</h2>
+<!-- 送信 -->
+<button onclick="sendAll()">まとめて送信</button>
 
-<h2>モード</h2>
-<button onclick="mode='question'">問題</button>
-<button onclick="mode='answer'">答え</button>
-
-<button onclick="send()">送信</button>
+<!-- カウント -->
+<div>
+  問題数: <span id="qCount">0</span> |
+  答え数: <span id="aCount">0</span>
+</div>
 
 <hr>
 
-<h2>復習</h2>
-<button onclick="loadReview()">開始</button><br><br>
+<!-- 復習 -->
+<button onclick="startReview()">復習開始</button>
 
-<img id="reviewImage" width="300"><br>
-<button onclick="nextPage()">次ページ</button>
-<button onclick="toggleQA()">問題/答え切替</button>
-<button onclick="nextSet()">次の問題</button>
+<div id="review"></div>
 
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
 
-let video = document.getElementById("video");
-let canvas = document.getElementById("canvas");
+let mode = "question";
+let stream;
+let canvas = document.getElementById("drawCanvas");
 let ctx = canvas.getContext("2d");
 
-let drawing=false;
-let mode="question";
+let drawing = false;
+let currentImage = "";
+let tempData = [];
 
-let questionImages=[];
-let answerImages=[];
-
-// カメラ
-async function startCamera(){
- const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
- video.srcObject=stream;
+function setMode(m) {
+  mode = m;
+  alert("モード：" + (m === "question" ? "問題" : "答え"));
 }
 
-// 撮影
-function takePhoto(){
- canvas.width=video.videoWidth;
- canvas.height=video.videoHeight;
- ctx.drawImage(video,0,0);
-}
-
-// カウント更新
-function updateCount(){
- document.getElementById("status").innerText =
-  "問題:"+questionImages.length+"枚 / 答え:"+answerImages.length+"枚";
-}
-
-// 追加
-function addPage(){
- const img=canvas.toDataURL("image/png");
-
- if(mode==="question"){
-  questionImages.push(img);
- }else{
-  answerImages.push(img);
- }
-
- updateCount();
- ctx.clearRect(0,0,canvas.width,canvas.height);
-}
-
-// リセット
-function resetCanvas(){
- ctx.clearRect(0,0,canvas.width,canvas.height);
-}
-
-// 送信（まとめて）
-function send(){
- if(questionImages.length===0 || answerImages.length===0){
-  alert("問題と答え両方必要");
-  return;
- }
-
- fetch(GAS_URL,{
-  method:"POST",
-  body:JSON.stringify({images:questionImages,type:"question"})
- })
- .then(()=>{
-  return fetch(GAS_URL,{
-   method:"POST",
-   body:JSON.stringify({images:answerImages,type:"answer"})
+async function startCamera() {
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
   });
- })
- .then(()=>{
-  alert("保存完了");
-  questionImages=[];
-  answerImages=[];
-  updateCount();
- });
+  document.getElementById("video").srcObject = stream;
 }
 
-// 描画ズレ完全修正
-canvas.addEventListener("touchmove",e=>{
- if(!drawing)return;
- const rect=canvas.getBoundingClientRect();
- const scaleX=canvas.width/rect.width;
- const scaleY=canvas.height/rect.height;
- const x=(e.touches[0].clientX-rect.left)*scaleX;
- const y=(e.touches[0].clientY-rect.top)*scaleY;
- ctx.fillRect(x,y,3,3);
- e.preventDefault();
+function capture() {
+  const video = document.getElementById("video");
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  ctx.drawImage(video, 0, 0);
+
+  currentImage = canvas.toDataURL("image/png");
+}
+
+canvas.addEventListener("touchstart", e => {
+  drawing = true;
+  draw(e);
 });
-canvas.addEventListener("touchstart",()=>drawing=true);
-canvas.addEventListener("touchend",()=>drawing=false);
 
-// ===== 復習 =====
-let data=[];
-let setIndex=0;
-let pageIndex=0;
-let isAnswer=false;
+canvas.addEventListener("touchmove", draw);
 
-function loadReview(){
- fetch(GAS_URL)
- .then(r=>r.json())
- .then(d=>{
-  data=d;
-  setIndex=0;
-  pageIndex=0;
-  isAnswer=false;
-  show();
- });
+canvas.addEventListener("touchend", () => drawing = false);
+
+function draw(e) {
+  if (!drawing) return;
+
+  e.preventDefault();
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  const x = (e.touches[0].clientX - rect.left) * scaleX;
+  const y = (e.touches[0].clientY - rect.top) * scaleY;
+
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fill();
 }
 
-function show(){
- if(data.length===0)return;
- let set=data[setIndex];
- let imgs=isAnswer?set.answer:set.question;
- document.getElementById("reviewImage").src=imgs[pageIndex];
+function saveData() {
+  if (!currentImage) {
+    alert("先に撮影して");
+    return;
+  }
+
+  tempData.push({
+    type: mode,
+    image: currentImage
+  });
+
+  updateCount();
+
+  alert("追加OK");
 }
 
-function nextPage(){
- let set=data[setIndex];
- let imgs=isAnswer?set.answer:set.question;
- pageIndex++;
- if(pageIndex>=imgs.length){pageIndex=0;}
- show();
+function updateCount() {
+  let q = tempData.filter(d => d.type === "question").length;
+  let a = tempData.filter(d => d.type === "answer").length;
+
+  document.getElementById("qCount").innerText = q;
+  document.getElementById("aCount").innerText = a;
 }
 
-function toggleQA(){
- isAnswer=!isAnswer;
- pageIndex=0;
- show();
+async function sendAll() {
+  let questions = tempData.filter(d => d.type === "question");
+  let answers = tempData.filter(d => d.type === "answer");
+
+  for (let i = 0; i < questions.length; i++) {
+    await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        question: questions[i]?.image || "",
+        answer: answers[i]?.image || "",
+        image: questions[i]?.image || ""
+      })
+    });
+  }
+
+  alert("送信完了");
+
+  tempData = [];
+  updateCount();
 }
 
-function nextSet(){
- setIndex++;
- pageIndex=0;
- isAnswer=false;
- if(setIndex>=data.length){
-  alert("終了");
-  return;
- }
- show();
+function startReview() {
+  fetch(API_URL)
+    .then(res => res.json())
+    .then(data => {
+
+      if (data.length === 0) {
+        document.getElementById("review").innerHTML = "問題なし";
+        return;
+      }
+
+      let html = "";
+
+      data.forEach((item, i) => {
+        html += `
+          <div style="margin:20px;">
+            <h3>問題 ${i+1}</h3>
+            <img src="${item.image}">
+            <br>
+            <button onclick="showAnswer('${item.answer}')">答え</button>
+          </div>
+        `;
+      });
+
+      document.getElementById("review").innerHTML = html;
+    });
 }
 
-// 初期表示
-updateCount();
+function showAnswer(ans) {
+  if (!ans) {
+    alert("答えなし");
+  } else {
+    const w = window.open();
+    w.document.write("<img src='" + ans + "' style='width:100%'>");
+  }
+}
 </script>
 
 </body>
