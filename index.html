@@ -5,11 +5,7 @@
 <title>勉強アプリ</title>
 
 <style>
-body {
-  font-family: sans-serif;
-  text-align: center;
-  margin: 0;
-}
+body { font-family: sans-serif; text-align: center; margin: 0; }
 
 video, canvas, img {
   width: 100%;
@@ -26,10 +22,27 @@ button {
   border: 1px solid black;
   touch-action: none;
 }
+
+#loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  font-size: 20px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
 </style>
 </head>
 
 <body>
+
+<div id="loading">しばらくお待ちください…</div>
 
 <h2>📚 勉強アプリ</h2>
 
@@ -49,13 +62,9 @@ button {
 <canvas id="drawCanvas"></canvas>
 <br>
 
-<!-- 一時保存 -->
 <button onclick="saveData()">追加</button>
-
-<!-- 送信 -->
 <button onclick="sendAll()">まとめて送信</button>
 
-<!-- カウント -->
 <div>
   問題数: <span id="qCount">0</span> |
   答え数: <span id="aCount">0</span>
@@ -63,7 +72,6 @@ button {
 
 <hr>
 
-<!-- 復習 -->
 <button onclick="startReview()">復習開始</button>
 
 <div id="review"></div>
@@ -72,7 +80,6 @@ button {
 const API_URL = "https://script.google.com/macros/s/AKfycby8F6D6aj_5xq8nPH-sNjQB4BEtMydS2WWilCkFQ8ngicr4LA4plCpj4o7vQ4PXTIOW/exec";
 
 let mode = "question";
-let stream;
 let canvas = document.getElementById("drawCanvas");
 let ctx = canvas.getContext("2d");
 
@@ -80,13 +87,16 @@ let drawing = false;
 let currentImage = "";
 let tempData = [];
 
+function showLoading(show){
+  document.getElementById("loading").style.display = show ? "flex" : "none";
+}
+
 function setMode(m) {
   mode = m;
-  alert("モード：" + (m === "question" ? "問題" : "答え"));
 }
 
 async function startCamera() {
-  stream = await navigator.mediaDevices.getUserMedia({
+  const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: "environment" }
   });
   document.getElementById("video").srcObject = stream;
@@ -94,12 +104,9 @@ async function startCamera() {
 
 function capture() {
   const video = document.getElementById("video");
-
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-
   ctx.drawImage(video, 0, 0);
-
   currentImage = canvas.toDataURL("image/png");
 }
 
@@ -109,12 +116,10 @@ canvas.addEventListener("touchstart", e => {
 });
 
 canvas.addEventListener("touchmove", draw);
-
 canvas.addEventListener("touchend", () => drawing = false);
 
 function draw(e) {
   if (!drawing) return;
-
   e.preventDefault();
 
   const rect = canvas.getBoundingClientRect();
@@ -131,32 +136,25 @@ function draw(e) {
 }
 
 function saveData() {
-  if (!currentImage) {
-    alert("先に撮影して");
-    return;
-  }
+  if (!currentImage) return alert("撮影して");
 
-  tempData.push({
-    type: mode,
-    image: currentImage
-  });
-
+  tempData.push({ type: mode, image: currentImage });
   updateCount();
-
-  alert("追加OK");
 }
 
 function updateCount() {
-  let q = tempData.filter(d => d.type === "question").length;
-  let a = tempData.filter(d => d.type === "answer").length;
+  document.getElementById("qCount").innerText =
+    tempData.filter(d=>d.type==="question").length;
 
-  document.getElementById("qCount").innerText = q;
-  document.getElementById("aCount").innerText = a;
+  document.getElementById("aCount").innerText =
+    tempData.filter(d=>d.type==="answer").length;
 }
 
 async function sendAll() {
-  let questions = tempData.filter(d => d.type === "question");
-  let answers = tempData.filter(d => d.type === "answer");
+  showLoading(true);
+
+  let questions = tempData.filter(d=>d.type==="question");
+  let answers = tempData.filter(d=>d.type==="answer");
 
   for (let i = 0; i < questions.length; i++) {
     await fetch(API_URL, {
@@ -169,46 +167,66 @@ async function sendAll() {
     });
   }
 
-  alert("送信完了");
-
   tempData = [];
   updateCount();
+
+  showLoading(false);
+  alert("保存完了");
 }
 
 function startReview() {
-  fetch(API_URL)
-    .then(res => res.json())
-    .then(data => {
+  showLoading(true);
 
-      if (data.length === 0) {
-        document.getElementById("review").innerHTML = "問題なし";
-        return;
+  fetch(API_URL)
+    .then(res=>res.json())
+    .then(data=>{
+
+      showLoading(false);
+
+      let qList = data.map(d=>d.image);
+      let aList = data.map(d=>d.answer);
+
+      let qIndex = 0;
+      let aIndex = 0;
+      let showing = "q";
+
+      function render(){
+        let html = "";
+
+        if(showing==="q"){
+          html = `
+            <h3>問題 ${qIndex+1}</h3>
+            <img src="${qList[qIndex]}"><br>
+            <button onclick="prevQ()">←</button>
+            <button onclick="nextQ()">→</button><br>
+            <button onclick="switchMode()">答えへ</button>
+          `;
+        }else{
+          html = `
+            <h3>答え ${aIndex+1}</h3>
+            <img src="${aList[aIndex]}"><br>
+            <button onclick="prevA()">←</button>
+            <button onclick="nextA()">→</button><br>
+            <button onclick="switchMode()">問題へ</button>
+          `;
+        }
+
+        document.getElementById("review").innerHTML = html;
       }
 
-      let html = "";
+      window.nextQ = ()=>{ if(qIndex<qList.length-1) qIndex++; render(); }
+      window.prevQ = ()=>{ if(qIndex>0) qIndex--; render(); }
 
-      data.forEach((item, i) => {
-        html += `
-          <div style="margin:20px;">
-            <h3>問題 ${i+1}</h3>
-            <img src="${item.image}">
-            <br>
-            <button onclick="showAnswer('${item.answer}')">答え</button>
-          </div>
-        `;
-      });
+      window.nextA = ()=>{ if(aIndex<aList.length-1) aIndex++; render(); }
+      window.prevA = ()=>{ if(aIndex>0) aIndex--; render(); }
 
-      document.getElementById("review").innerHTML = html;
+      window.switchMode = ()=>{
+        showing = showing==="q" ? "a" : "q";
+        render();
+      }
+
+      render();
     });
-}
-
-function showAnswer(ans) {
-  if (!ans) {
-    alert("答えなし");
-  } else {
-    const w = window.open();
-    w.document.write("<img src='" + ans + "' style='width:100%'>");
-  }
 }
 </script>
 
