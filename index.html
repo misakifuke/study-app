@@ -2,18 +2,28 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>完全体</title>
+<title>完全体（修正版）</title>
 
 <style>
 body { text-align:center; font-family:sans-serif; }
 video, canvas, img { width:100%; max-width:400px; }
 button { margin:5px; padding:10px; }
+
 #loading {
- position:fixed; top:0; left:0; width:100%; height:100%;
- background:rgba(0,0,0,0.6); color:#fff;
- display:none; align-items:center; justify-content:center;
+ position:fixed;
+ top:0; left:0;
+ width:100%; height:100%;
+ background:rgba(0,0,0,0.6);
+ color:#fff;
+ display:none;
+ align-items:center;
+ justify-content:center;
 }
-canvas { border:1px solid black; touch-action:none; }
+
+canvas {
+ border:1px solid black;
+ touch-action:none;
+}
 </style>
 </head>
 
@@ -21,7 +31,7 @@ canvas { border:1px solid black; touch-action:none; }
 
 <div id="loading">しばらくお待ちください…</div>
 
-<h2>📚 完全体アプリ</h2>
+<h2>📚 完全体（修正版）</h2>
 
 <button onclick="mode='question'">問題</button>
 <button onclick="mode='answer'">答え</button>
@@ -53,22 +63,54 @@ let ctx=canvas.getContext("2d");
 let mode="question";
 let qImgs=[];
 let aImgs=[];
+let drawing=false;
 
+// ローディング
 function loading(v){
  document.getElementById("loading").style.display=v?"flex":"none";
 }
 
+// カメラ
 async function startCamera(){
  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
  video.srcObject=s;
 }
 
+// 撮影
 function capture(){
  canvas.width=video.videoWidth;
  canvas.height=video.videoHeight;
  ctx.drawImage(video,0,0);
 }
 
+// 描画（復活🔥）
+canvas.addEventListener("touchstart",e=>{
+ drawing=true;
+ draw(e);
+});
+
+canvas.addEventListener("touchmove",draw);
+
+canvas.addEventListener("touchend",()=>drawing=false);
+
+function draw(e){
+ if(!drawing)return;
+ e.preventDefault();
+
+ const rect=canvas.getBoundingClientRect();
+ const scaleX=canvas.width/rect.width;
+ const scaleY=canvas.height/rect.height;
+
+ const x=(e.touches[0].clientX-rect.left)*scaleX;
+ const y=(e.touches[0].clientY-rect.top)*scaleY;
+
+ ctx.fillStyle="red";
+ ctx.beginPath();
+ ctx.arc(x,y,4,0,Math.PI*2);
+ ctx.fill();
+}
+
+// 追加
 function add(){
  const img=canvas.toDataURL();
  if(mode==="question") qImgs.push(img);
@@ -76,65 +118,87 @@ function add(){
  update();
 }
 
+// カウント
 function update(){
  document.getElementById("q").innerText=qImgs.length;
  document.getElementById("a").innerText=aImgs.length;
 }
 
+// 送信
 async function send(){
- if(qImgs.length===0||aImgs.length===0)return alert("両方必要");
+ if(qImgs.length===0||aImgs.length===0){
+  alert("問題と答え必要");
+  return;
+ }
 
  loading(true);
 
- await fetch(URL,{
-  method:"POST",
-  body:JSON.stringify({
-   questions:qImgs,
-   answers:aImgs
-  })
- });
+ try{
+  await fetch(URL,{
+   method:"POST",
+   body:JSON.stringify({
+    questions:qImgs,
+    answers:aImgs
+   })
+  });
 
- qImgs=[]; aImgs=[];
- update();
+  qImgs=[]; aImgs=[];
+  update();
+  alert("保存完了");
+
+ }catch(e){
+  alert("通信エラー");
+ }
 
  loading(false);
- alert("保存完了");
 }
 
+// ===== 復習 =====
 let data=[];
-let set=0, page=0, mode2="q";
+let set=0,page=0,mode2="q";
 
 function startReview(){
  loading(true);
 
- fetch(URL).then(r=>r.json()).then(d=>{
+ fetch(URL)
+ .then(r=>r.json())
+ .then(d=>{
   data=d;
   set=0; page=0; mode2="q";
+  drawReview();
   loading(false);
-  draw();
+ })
+ .catch(()=>{
+  loading(false);
+  alert("読み込み失敗");
  });
 }
 
-function draw(){
+function drawReview(){
  if(data.length===0)return;
 
  let s=data[set];
  let imgs=mode2==="q"?s.questions:s.answers;
 
  document.getElementById("review").innerHTML=`
-  <h3>セット${set+1}</h3>
+  <h3>セット${set+1} (${page+1}/${imgs.length})</h3>
   <img src="${imgs[page]}"><br>
   <button onclick="prev()">←</button>
   <button onclick="next()">→</button><br>
-  <button onclick="switchQA()">切替</button><br>
-  <button onclick="nextSet()">次の問題</button>
+  <button onclick="switchQA()">問題⇄答え</button><br>
+  <button onclick="nextSet()">次のセット</button>
  `;
 }
 
-function next(){ page++; draw(); }
-function prev(){ if(page>0)page--; draw(); }
-function switchQA(){ mode2=mode2==="q"?"a":"q"; page=0; draw(); }
-function nextSet(){ set++; page=0; if(set>=data.length)set=0; draw(); }
+function next(){ if(page<imgsLen()-1)page++; drawReview(); }
+function prev(){ if(page>0)page--; drawReview(); }
+function switchQA(){ mode2=mode2==="q"?"a":"q"; page=0; drawReview(); }
+function nextSet(){ set=(set+1)%data.length; page=0; drawReview(); }
+
+function imgsLen(){
+ let s=data[set];
+ return mode2==="q"?s.questions.length:s.answers.length;
+}
 </script>
 
 </body>
