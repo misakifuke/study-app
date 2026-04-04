@@ -28,7 +28,7 @@ button{
  background:#222;color:white;
 }
 
-/* カメラ横 */
+/* カメラ */
 video{
  width:92%;
  aspect-ratio:16/9;
@@ -38,10 +38,11 @@ video{
  margin:10px auto;
 }
 
-/* 画像 */
+/* 画像（カメラと完全一致） */
 img{
  width:92%;
- object-fit:contain;
+ aspect-ratio:16/9;
+ object-fit:cover;
  border-radius:12px;
  display:block;
  margin:10px auto;
@@ -50,6 +51,7 @@ img{
 /* 編集 */
 #canvas{
  width:92%;
+ aspect-ratio:16/9;
  display:block;
  margin:10px auto;
  border-radius:12px;
@@ -110,9 +112,7 @@ let state={
  reviewData:[],
  reviewIndex:0,
  reviewSubIndex:0,
- modeQA:"q",
- continueIndex:0,
- continueSubIndex:0
+ modeQA:"q"
 };
 
 let video,canvas,ctx;
@@ -187,17 +187,15 @@ async function startCamera(){
  video.srcObject=s;
 }
 
-/* 🔥 横保存 */
+/* 🔥 回転なし（そのまま保存） */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
 
- c.width=video.videoHeight;
- c.height=video.videoWidth;
+ c.width=video.videoWidth;
+ c.height=video.videoHeight;
 
- ctx.translate(c.width/2,c.height/2);
- ctx.rotate(90*Math.PI/180);
- ctx.drawImage(video,-video.videoWidth/2,-video.videoHeight/2);
+ ctx.drawImage(video,0,0);
 
  captured=c.toDataURL();
 
@@ -265,18 +263,9 @@ function show(){
  let img=new Image();
  img.src=state.tempImgs[state.editIndex];
  img.onload=()=>{
-  const rect = canvas.getBoundingClientRect();
-  const baseRatio = 16/9;
-  const imgRatio = img.width / img.height;
-
-  let w = rect.width;
-  let h = (imgRatio > baseRatio) ? w / imgRatio : w / baseRatio;
-
-  canvas.width = w;
-  canvas.height = h;
-
-  ctx.clearRect(0,0,w,h);
-  ctx.drawImage(img,0,0,w,h);
+  canvas.width=img.width;
+  canvas.height=img.height;
+  ctx.drawImage(img,0,0);
  };
 }
 
@@ -325,7 +314,7 @@ async function send(){
  render();
 }
 
-/* 復習（完全） */
+/* 復習（省略なし） */
 function isSameDay(d1,d2){
  return d1.getFullYear()===d2.getFullYear() &&
         d1.getMonth()===d2.getMonth() &&
