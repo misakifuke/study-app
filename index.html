@@ -31,18 +31,17 @@ button{
 /* カメラ */
 video{
  width:92%;
- aspect-ratio:16/9;
- object-fit:cover;
+ height:auto;
  border-radius:12px;
  display:block;
  margin:10px auto;
 }
 
-/* 画像（カメラと完全一致） */
+/* 🔥 画像そのまま表示（絶対引き伸ばさない） */
 img{
  width:92%;
- aspect-ratio:16/9;
- object-fit:cover;
+ height:auto;
+ object-fit:contain;
  border-radius:12px;
  display:block;
  margin:10px auto;
@@ -51,7 +50,7 @@ img{
 /* 編集 */
 #canvas{
  width:92%;
- aspect-ratio:16/9;
+ height:auto;
  display:block;
  margin:10px auto;
  border-radius:12px;
@@ -187,7 +186,7 @@ async function startCamera(){
  video.srcObject=s;
 }
 
-/* 🔥 回転なし（そのまま保存） */
+/* 🔥 そのまま保存 */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
@@ -265,6 +264,7 @@ function show(){
  img.onload=()=>{
   canvas.width=img.width;
   canvas.height=img.height;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img,0,0);
  };
 }
@@ -314,7 +314,7 @@ async function send(){
  render();
 }
 
-/* 復習（省略なし） */
+/* 復習 */
 function isSameDay(d1,d2){
  return d1.getFullYear()===d2.getFullYear() &&
         d1.getMonth()===d2.getMonth() &&
