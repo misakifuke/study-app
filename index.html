@@ -28,7 +28,7 @@ button{
  background:#222;color:white;
 }
 
-/* カメラ（横固定） */
+/* カメラ横固定 */
 video{
  width:92%;
  aspect-ratio:16/9;
@@ -38,7 +38,7 @@ video{
  margin:10px auto;
 }
 
-/* 🔥 画像＝そのまま */
+/* 画像そのまま */
 img{
  width:92%;
  height:auto;
@@ -181,26 +181,25 @@ function register(){
  startCamera();
 }
 
-/* 横固定取得 */
+/* カメラ取得 */
 async function startCamera(){
  const s=await navigator.mediaDevices.getUserMedia({
-  video:{
-   facingMode:"environment",
-   aspectRatio:16/9
-  }
+  video:{facingMode:"environment"}
  });
  video.srcObject=s;
 }
 
-/* 🔥 完全そのまま保存（回転なし） */
+/* 🔥 見たままキャプチャ（完全版） */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
 
- c.width=video.videoWidth;
- c.height=video.videoHeight;
+ let rect=video.getBoundingClientRect();
 
- ctx.drawImage(video,0,0);
+ c.width=rect.width;
+ c.height=rect.height;
+
+ ctx.drawImage(video,0,0,c.width,c.height);
 
  captured=c.toDataURL();
 
@@ -232,7 +231,7 @@ function retake(){
  document.getElementById("controls").innerHTML="";
 }
 
-/* 編集（そのまま描画） */
+/* 編集 */
 function goEdit(){
  if(state.tempImgs.length===0)return alert("画像なし");
  save();
@@ -270,6 +269,7 @@ function show(){
  img.onload=()=>{
   canvas.width=img.width;
   canvas.height=img.height;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img,0,0);
  };
 }
