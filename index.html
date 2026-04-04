@@ -5,19 +5,81 @@
 <title>完全体</title>
 
 <style>
-body { font-family:sans-serif; text-align:center; margin:0; }
-button { margin:8px; padding:12px; width:80%; }
-video, canvas, img { width:100%; max-width:400px; }
-
-#loading {
- position:fixed; top:0; left:0; width:100%; height:100%;
- background:rgba(0,0,0,0.6); color:#fff;
- display:none; align-items:center; justify-content:center;
+body {
+ font-family:sans-serif;
+ text-align:center;
+ margin:0;
 }
 
-#back { position:absolute; top:10px; left:10px; }
+h2 {
+ margin-top:60px;
+}
 
-canvas { border:1px solid black; touch-action:none; }
+/* 🔥 ボタン強化 */
+button {
+ width:80%;
+ height:80px;
+ font-size:18px;
+ margin:10px;
+ border-radius:12px;
+}
+
+/* 小さいボタン（復習用） */
+.small-btn {
+ width:60px;
+ height:60px;
+ font-size:20px;
+}
+
+/* 🔥 ローディング */
+#loading {
+ position:fixed;
+ top:0; left:0;
+ width:100%; height:100%;
+ background:rgba(0,0,0,0.6);
+ color:#fff;
+ display:none;
+ align-items:center;
+ justify-content:center;
+}
+
+/* 🔥 戻るボタン */
+#back {
+ position:fixed;
+ top:10px;
+ left:10px;
+ width:60px;
+ height:60px;
+ z-index:10;
+}
+
+/* 🔥 画像 */
+video, canvas, img {
+ width:100%;
+ max-width:400px;
+}
+
+/* 🔥 復習UI */
+.review-container {
+ position:relative;
+ display:flex;
+ justify-content:center;
+ align-items:center;
+}
+
+.arrow {
+ position:absolute;
+ top:50%;
+ transform:translateY(-50%);
+}
+
+.left { left:5px; }
+.right { right:5px; }
+
+canvas {
+ border:1px solid black;
+ touch-action:none;
+}
 </style>
 </head>
 
@@ -33,7 +95,6 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 
 let state="home";
 
-// ===== 共通 =====
 function loading(v){
  document.getElementById("loading").style.display=v?"flex":"none";
 }
@@ -68,13 +129,13 @@ function goRegister(){
  setView(`
   <h2>問題登録</h2>
   <button onclick="mode='question'">問題</button>
-  <button onclick="mode='answer'">答え</button><br>
+  <button onclick="mode='answer'">答え</button>
 
-  <video id="video" autoplay playsinline></video><br>
+  <video id="video" autoplay playsinline></video>
   <button onclick="startCamera()">カメラ</button>
   <button onclick="capture()">撮影</button>
 
-  <canvas id="canvas"></canvas><br>
+  <canvas id="canvas"></canvas>
 
   <button onclick="add()">追加</button>
   <button onclick="send()">送信</button>
@@ -163,7 +224,6 @@ function goReview(type){
  fetch(URL).then(r=>r.json()).then(d=>{
 
   let targets=[];
-
   if(type==="alpha") targets=[3,7,14];
   if(type==="plus") targets=[1,3,7,14];
 
@@ -171,10 +231,7 @@ function goReview(type){
     if(type==="normal"||type==="all") return true;
 
     let date=getDateOnly(x.date);
-
-    return targets.some(day=>{
-      return date===getTargetDate(day);
-    });
+    return targets.some(day=>date===getTargetDate(day));
   });
 
   set=0;page=0;mode2="q";
@@ -193,11 +250,15 @@ function drawReview(){
  let imgs=mode2==="q"?s.questions:s.answers;
 
  setView(`
-  <h3>セット${set+1}</h3>
-  <img src="${imgs[page]}"><br>
-  <button onclick="prev()">←</button>
-  <button onclick="next()">→</button><br>
-  <button onclick="switchQA()">問題⇄答え</button><br>
+  <h2>復習</h2>
+
+  <div class="review-container">
+    <button class="small-btn arrow left" onclick="prev()">←</button>
+    <img src="${imgs[page]}">
+    <button class="small-btn arrow right" onclick="next()">→</button>
+  </div>
+
+  <button onclick="switchQA()">問題⇄答え</button>
   <button onclick="nextSet()">次のセット</button>
  `);
 }
