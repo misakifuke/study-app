@@ -4,7 +4,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
-button{width:90%;height:65px;margin:8px;border:none;border-radius:12px;color:#fff;font-size:16px;}
+button{width:90%;height:60px;margin:6px;border:none;border-radius:12px;color:#fff;font-size:15px;}
+
 .blue{background:#3498db;} .green{background:#2ecc71;}
 .orange{background:#f39c12;} .red{background:#e74c3c;}
 .purple{background:#9b59b6;} .dark{background:#222;}
@@ -17,29 +18,38 @@ button{width:90%;height:65px;margin:8px;border:none;border-radius:12px;color:#ff
 }
 
 video,img,canvas{
- width:92%;aspect-ratio:16/9;object-fit:cover;
- border-radius:12px;margin:10px auto;display:block;background:#000;
+ width:92%;
+ aspect-ratio:16/9;
+ object-fit:cover;
+ border-radius:12px;
+ margin:10px auto;
+ display:block;
+ background:#000;
 }
 
 .captureBtn{
  position:fixed;bottom:20px;left:50%;
  transform:translateX(-50%);
- width:70px;height:70px;border-radius:50%;
+ width:70px;height:70px;
+ border-radius:50%;
  background:#fff;border:4px solid #ccc;
 }
 
 .wrap{position:relative;}
 .arrow{
- position:absolute;top:50%;transform:translateY(-50%);
- width:45px;height:45px;border-radius:50%;
+ position:absolute;top:50%;
+ transform:translateY(-50%);
+ width:45px;height:45px;
+ border-radius:50%;
  background:#222;color:#fff;
 }
 .left{left:10px;} .right{right:10px;}
 
 #loading{
  position:fixed;top:0;left:0;width:100%;height:100%;
- background:rgba(0,0,0,0.6);color:#fff;
- display:none;align-items:center;justify-content:center;
+ background:rgba(0,0,0,0.6);
+ color:#fff;display:none;
+ align-items:center;justify-content:center;
  font-size:20px;z-index:999;
 }
 </style>
@@ -73,18 +83,11 @@ let state={
  mode:"q"
 };
 
+/* 共通 */
 function showLoading(){loading.style.display="flex";}
 function hideLoading(){loading.style.display="none";}
-
-/* 戻る */
-function save(){history.push(JSON.parse(JSON.stringify(state)));}
-back.onclick=goBack;
-
-function goBack(){
- if(!history.length)return;
- state=history.pop();
- render();
-}
+function save(){history.push(JSON.stringify(state));}
+back.onclick=()=>{if(history.length){state=JSON.parse(history.pop());render();}};
 
 /* トリミング */
 function crop169(w,h){
@@ -100,7 +103,7 @@ function crop169(w,h){
 
 /* 画面 */
 function render(){
- back.style.display = (state.screen==="home") ? "none" : "block";
+ back.style.display=(state.screen==="home")?"none":"block";
 
  if(state.screen==="home") home();
  if(state.screen==="cam") cam();
@@ -138,14 +141,13 @@ async function cam(){
  video.srcObject=s;
 }
 
-/* 撮影 */
 function capture(){
  let c=document.createElement("canvas");
- let ctx=c.getContext("2d");
+ let cx=c.getContext("2d");
  let w=video.videoWidth,h=video.videoHeight;
  let crop=crop169(w,h);
  c.width=1280;c.height=720;
- ctx.drawImage(video,crop.sx,crop.sy,crop.sw,crop.sh,0,0,1280,720);
+ cx.drawImage(video,crop.sx,crop.sy,crop.sw,crop.sh,0,0,1280,720);
  let data=c.toDataURL();
 
  video.style.display="none";
@@ -249,8 +251,32 @@ async function send(){
  render();
 }
 
+/* 保存 */
+function saveProg(){
+ localStorage.setItem("save",JSON.stringify({
+  reviewIndex:state.reviewIndex,
+  reviewSub:state.reviewSub,
+  reviewMode:state.reviewMode,
+  mode:state.mode
+ }));
+ alert("保存した");
+}
+
+function loadProg(){
+ let d=JSON.parse(localStorage.getItem("save")||"{}");
+ state.reviewIndex=d.reviewIndex||0;
+ state.reviewSub=d.reviewSub||0;
+ state.reviewMode=d.reviewMode||"all";
+ state.mode=d.mode||"q";
+}
+
+function startContinue(){
+ loadProg();
+ startReview(state.reviewMode,true);
+}
+
 /* 復習 */
-async function startReview(mode){
+async function startReview(mode,isContinue=false){
  save();
  state.reviewMode=mode;
 
@@ -262,11 +288,7 @@ async function startReview(mode){
   let now=new Date();
   let get=n=>{let d=new Date();d.setDate(now.getDate()-n);return d;}
 
-  function same(d1,d2){
-   return d1.getFullYear()===d2.getFullYear() &&
-          d1.getMonth()===d2.getMonth() &&
-          d1.getDate()===d2.getDate();
-  }
+  function same(a,b){return a.toDateString()===b.toDateString();}
 
   if(mode==="normal"){
    state.reviewData=data.filter(x=>same(new Date(x.date),get(1)));
@@ -281,8 +303,17 @@ async function startReview(mode){
    state.reviewData=data;
   }
 
-  state.reviewIndex=0;
-  state.reviewSub=0;
+  if(!isContinue){
+   state.reviewIndex=0;
+   state.reviewSub=0;
+   state.mode="q";
+  }
+
+  if(state.reviewIndex>=state.reviewData.length){
+   state.reviewIndex=0;
+   state.reviewSub=0;
+  }
+
   state.screen="review";
 
  }catch(e){alert("読み込み失敗");}
@@ -291,19 +322,13 @@ async function startReview(mode){
  render();
 }
 
-function startContinue(){
- state.reviewMode="all";
- state.reviewIndex=+localStorage.i||0;
- state.reviewSub=+localStorage.j||0;
- startReview("all");
-}
-
 /* レビュー */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return app.innerHTML="データなし";
 
  let list=state.mode==="q"?d.questions:d.answers;
+ if(state.reviewSub>=list.length) state.reviewSub=0;
 
  let totalSet=state.reviewData.length;
  let currentSet=state.reviewIndex+1;
@@ -312,7 +337,7 @@ function review(){
 
  app.innerHTML=`
  <div style="margin-top:10px;font-size:14px;">
- セット ${currentSet} / ${totalSet}（ページ ${currentPage} / ${totalPage}）
+ セット ${currentSet}/${totalSet}（${currentPage}/${totalPage}）
  </div>
 
  <div class="wrap">
@@ -322,15 +347,12 @@ function review(){
  </div>
 
  <button class="green" onclick="toggle()">切替</button>
-
- ${state.reviewMode==="all" ? '<button class="dark" onclick="saveProg()">保存</button>' : ''}
+ <button class="dark" onclick="saveProg()">保存</button>
  `;
 }
 
 function nextR(){
- let d=state.reviewData[state.reviewIndex];
- let list=state.mode==="q"?d.questions:d.answers;
-
+ let list=getList();
  if(state.reviewSub<list.length-1){
   state.reviewSub++;
  }else if(state.reviewIndex<state.reviewData.length-1){
@@ -345,15 +367,22 @@ function prevR(){
   state.reviewSub--;
  }else if(state.reviewIndex>0){
   state.reviewIndex--;
-  let d=state.reviewData[state.reviewIndex];
-  let list=state.mode==="q"?d.questions:d.answers;
+  let list=getList();
   state.reviewSub=list.length-1;
  }
  render();
 }
 
-function toggle(){state.mode=state.mode==="q"?"a":"q";state.reviewSub=0;render();}
-function saveProg(){localStorage.i=state.reviewIndex;localStorage.j=state.reviewSub;}
+function getList(){
+ let d=state.reviewData[state.reviewIndex];
+ return state.mode==="q"?d.questions:d.answers;
+}
+
+function toggle(){
+ state.mode=state.mode==="q"?"a":"q";
+ state.reviewSub=0;
+ render();
+}
 
 render();
 </script>
