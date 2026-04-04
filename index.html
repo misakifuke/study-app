@@ -5,111 +5,114 @@
 <title>完全体</title>
 
 <style>
-body { text-align:center; font-family:sans-serif; }
+body { font-family:sans-serif; text-align:center; margin:0; }
+button { margin:8px; padding:12px; width:80%; }
 video, canvas, img { width:100%; max-width:400px; }
-button { margin:5px; padding:10px; }
 
 #loading {
- position:fixed;
- top:0; left:0;
- width:100%; height:100%;
- background:rgba(0,0,0,0.6);
- color:#fff;
- display:none;
- align-items:center;
- justify-content:center;
+ position:fixed; top:0; left:0; width:100%; height:100%;
+ background:rgba(0,0,0,0.6); color:#fff;
+ display:none; align-items:center; justify-content:center;
 }
 
-canvas {
- border:1px solid black;
- touch-action:none;
-}
+#back { position:absolute; top:10px; left:10px; }
+
+canvas { border:1px solid black; touch-action:none; }
 </style>
 </head>
 
 <body>
 
 <div id="loading">しばらくお待ちください…</div>
+<button id="back" onclick="goHome()" style="display:none">←</button>
 
-<h2>📚 完全体アプリ</h2>
-
-<button onclick="mode='question'">問題</button>
-<button onclick="mode='answer'">答え</button>
-
-<video id="video" autoplay playsinline></video><br>
-<button onclick="startCamera()">カメラ</button>
-<button onclick="capture()">撮影</button>
-
-<canvas id="canvas"></canvas><br>
-
-<button onclick="add()">追加</button>
-<button onclick="send()">送信</button>
-
-<div>問題:<span id="q">0</span> 答え:<span id="a">0</span></div>
-
-<hr>
-
-<button onclick="startReview()">復習開始</button>
-
-<div id="review"></div>
+<div id="app"></div>
 
 <script>
 const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqiATr_Fti0z_Z7vGykZADJKsa3GLlPnbBPQeB-C0NA/exec";
 
-let video=document.getElementById("video");
-let canvas=document.getElementById("canvas");
-let ctx=canvas.getContext("2d");
+let state="home";
 
-let mode="question";
-let qImgs=[];
-let aImgs=[];
-let drawing=false;
-
-// ローディング
+// ===== 共通 =====
 function loading(v){
  document.getElementById("loading").style.display=v?"flex":"none";
 }
 
-// カメラ
+function setView(html){
+ document.getElementById("app").innerHTML=html;
+ document.getElementById("back").style.display=(state==="home")?"none":"block";
+}
+
+// ===== ホーム =====
+function goHome(){
+ state="home";
+ setView(`
+  <h2>📚 ホーム</h2>
+  <button onclick="goRegister()">問題登録</button>
+  <button onclick="goReview('normal')">問題復習</button>
+  <button onclick="goReview('alpha')">問題復習α</button>
+  <button onclick="goReview('plus')">問題復習＋</button>
+  <button onclick="goReview('all')">総復習</button>
+ `);
+}
+
+// ===== 登録 =====
+let video,canvas,ctx;
+let qImgs=[],aImgs=[];
+let mode="question";
+let drawing=false;
+
+function goRegister(){
+ state="register";
+
+ setView(`
+  <h2>問題登録</h2>
+  <button onclick="mode='question'">問題</button>
+  <button onclick="mode='answer'">答え</button><br>
+
+  <video id="video" autoplay playsinline></video><br>
+  <button onclick="startCamera()">カメラ</button>
+  <button onclick="capture()">撮影</button>
+
+  <canvas id="canvas"></canvas><br>
+
+  <button onclick="add()">追加</button>
+  <button onclick="send()">送信</button>
+
+  <div>問題:<span id="q">0</span> 答え:<span id="a">0</span></div>
+ `);
+
+ video=document.getElementById("video");
+ canvas=document.getElementById("canvas");
+ ctx=canvas.getContext("2d");
+
+ canvas.addEventListener("touchstart",e=>{drawing=true;draw(e);});
+ canvas.addEventListener("touchmove",draw);
+ canvas.addEventListener("touchend",()=>drawing=false);
+}
+
 async function startCamera(){
  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
  video.srcObject=s;
 }
 
-// 撮影
 function capture(){
  canvas.width=video.videoWidth;
  canvas.height=video.videoHeight;
  ctx.drawImage(video,0,0);
 }
 
-// 描画
-canvas.addEventListener("touchstart",e=>{
- drawing=true;
- draw(e);
-});
-
-canvas.addEventListener("touchmove",draw);
-canvas.addEventListener("touchend",()=>drawing=false);
-
 function draw(e){
  if(!drawing)return;
  e.preventDefault();
-
  const rect=canvas.getBoundingClientRect();
  const scaleX=canvas.width/rect.width;
  const scaleY=canvas.height/rect.height;
-
  const x=(e.touches[0].clientX-rect.left)*scaleX;
  const y=(e.touches[0].clientY-rect.top)*scaleY;
-
- ctx.fillStyle="red";
- ctx.beginPath();
- ctx.arc(x,y,4,0,Math.PI*2);
- ctx.fill();
+ ctx.fillRect(x,y,4,4);
 }
 
-// 追加
 function add(){
  const img=canvas.toDataURL();
  if(mode==="question") qImgs.push(img);
@@ -117,105 +120,100 @@ function add(){
  update();
 }
 
-// カウント
 function update(){
  document.getElementById("q").innerText=qImgs.length;
  document.getElementById("a").innerText=aImgs.length;
 }
 
-// 送信（セット保存）
 async function send(){
- if(qImgs.length===0||aImgs.length===0){
-  alert("問題と答え必要");
-  return;
- }
-
  loading(true);
 
- try{
-  await fetch(URL,{
-   method:"POST",
-   body:JSON.stringify({
-    questions:qImgs,
-    answers:aImgs
-   })
-  });
+ await fetch(URL,{
+  method:"POST",
+  body:JSON.stringify({
+   questions:qImgs,
+   answers:aImgs
+  })
+ });
 
-  qImgs=[]; aImgs=[];
-  update();
-  alert("保存完了");
-
- }catch(e){
-  alert("通信エラー");
- }
-
+ qImgs=[];aImgs=[];update();
  loading(false);
+ alert("保存完了");
+}
+
+// ===== 日付処理 =====
+function getDateOnly(date){
+ let d=new Date(date);
+ return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
+}
+
+function getTargetDate(days){
+ let d=new Date();
+ d.setDate(d.getDate()-days);
+ return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
 }
 
 // ===== 復習 =====
-let data=[];
-let set=0,page=0,mode2="q";
+let data=[],set=0,page=0,mode2="q";
 
-function startReview(){
+function goReview(type){
+ state="review";
  loading(true);
 
- fetch(URL)
- .then(r=>r.json())
- .then(d=>{
-  data=d;
-  set=0; page=0; mode2="q";
+ fetch(URL).then(r=>r.json()).then(d=>{
+
+  let targets=[];
+
+  if(type==="alpha") targets=[3,7,14];
+  if(type==="plus") targets=[1,3,7,14];
+
+  data = d.filter(x=>{
+    if(type==="normal"||type==="all") return true;
+
+    let date=getDateOnly(x.date);
+
+    return targets.some(day=>{
+      return date===getTargetDate(day);
+    });
+  });
+
+  set=0;page=0;mode2="q";
+  loading(false);
   drawReview();
-  loading(false);
- })
- .catch(()=>{
-  loading(false);
-  alert("読み込み失敗");
  });
 }
 
 function drawReview(){
  if(data.length===0){
-  document.getElementById("review").innerHTML="データなし";
+  setView("<h2>データなし</h2>");
   return;
  }
 
  let s=data[set];
  let imgs=mode2==="q"?s.questions:s.answers;
 
- document.getElementById("review").innerHTML=`
-  <h3>セット${set+1}（${page+1}/${imgs.length}）</h3>
+ setView(`
+  <h3>セット${set+1}</h3>
   <img src="${imgs[page]}"><br>
   <button onclick="prev()">←</button>
   <button onclick="next()">→</button><br>
   <button onclick="switchQA()">問題⇄答え</button><br>
   <button onclick="nextSet()">次のセット</button>
- `;
+ `);
 }
 
-function next(){
+function next(){ if(page<imgLen()-1)page++; drawReview(); }
+function prev(){ if(page>0)page--; drawReview(); }
+function switchQA(){ mode2=mode2==="q"?"a":"q"; page=0; drawReview(); }
+function nextSet(){ set=(set+1)%data.length; page=0; drawReview(); }
+
+function imgLen(){
  let s=data[set];
- let imgs=mode2==="q"?s.questions:s.answers;
- if(page<imgs.length-1) page++;
- drawReview();
+ return mode2==="q"?s.questions.length:s.answers.length;
 }
 
-function prev(){
- if(page>0) page--;
- drawReview();
-}
-
-function switchQA(){
- mode2=mode2==="q"?"a":"q";
- page=0;
- drawReview();
-}
-
-function nextSet(){
- set++;
- if(set>=data.length) set=0;
- page=0;
- drawReview();
-}
+// 初期
+goHome();
 </script>
 
 </body>
