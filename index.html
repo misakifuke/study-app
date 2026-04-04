@@ -30,17 +30,14 @@ button{
 
 video,img{
  width:92%;
- aspect-ratio:16/9;
- object-fit:cover;
+ object-fit:contain;
  border-radius:12px;
  display:block;
  margin:10px auto;
 }
 
-/* 🔥 完全修正：中央＆ズレ防止 */
 #canvas{
  width:92%;
- aspect-ratio:16/9;
  display:block;
  margin:10px auto;
  border-radius:12px;
@@ -257,14 +254,17 @@ function edit(){
  show();
 }
 
-/* 🔥 完全ズレ修正 */
+/* 比率維持 */
 function show(){
  let img=new Image();
  img.src=state.tempImgs[state.editIndex];
  img.onload=()=>{
   const rect = canvas.getBoundingClientRect();
+  const ratio = img.width / img.height;
+
   canvas.width = rect.width;
-  canvas.height = rect.height;
+  canvas.height = rect.width / ratio;
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img,0,0,canvas.width,canvas.height);
  };
@@ -318,6 +318,13 @@ async function send(){
  render();
 }
 
+/* 日付判定 */
+function isSameDay(d1,d2){
+ return d1.getFullYear()===d2.getFullYear() &&
+        d1.getMonth()===d2.getMonth() &&
+        d1.getDate()===d2.getDate();
+}
+
 /* 復習 */
 async function startReview(mode){
  save();
@@ -326,22 +333,20 @@ async function startReview(mode){
  let res=await fetch(URL);
  let all=await res.json();
 
- let saved = localStorage.getItem("continueIndex");
- let savedSub = localStorage.getItem("continueSubIndex");
+ let yesterday=new Date();
+ yesterday.setDate(yesterday.getDate()-1);
 
- if(saved!==null) state.continueIndex=Number(saved);
- if(savedSub!==null) state.continueSubIndex=Number(savedSub);
-
- if(mode==="continue"){
-  state.reviewData=all;
-  state.reviewIndex=state.continueIndex||0;
-  state.reviewSubIndex=state.continueSubIndex||0;
+ if(mode==="normal"){
+  state.reviewData = all.filter(item=>{
+   let d=new Date(item.date);
+   return isSameDay(d,yesterday);
+  });
  }else{
-  state.reviewData=all;
-  state.reviewIndex=0;
-  state.reviewSubIndex=0;
+  state.reviewData = all;
  }
 
+ state.reviewIndex=0;
+ state.reviewSubIndex=0;
  state.modeQA="q";
  state.screen="review";
 
@@ -366,7 +371,6 @@ function review(){
   </div>
 
   <button class="green" onclick="toggleQA()">切替</button>
-  <button class="dark" onclick="saveProgress()">ここまで保存</button>
  `;
 }
 
@@ -379,7 +383,6 @@ function nextImg(){
  }else if(state.reviewIndex<state.reviewData.length-1){
   state.reviewIndex++;
   state.reviewSubIndex=0;
-  state.modeQA="q";
  }
  render();
 }
@@ -394,14 +397,6 @@ function prevImg(){
   state.reviewSubIndex=list.length-1;
  }
  render();
-}
-
-function saveProgress(){
- state.continueIndex=state.reviewIndex;
- state.continueSubIndex=state.reviewSubIndex;
- localStorage.setItem("continueIndex",state.continueIndex);
- localStorage.setItem("continueSubIndex",state.continueSubIndex);
- flash("保存完了");
 }
 
 function toggleQA(){
