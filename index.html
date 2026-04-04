@@ -37,15 +37,14 @@ video,img{
  margin:10px auto;
 }
 
-/* 編集1.3倍 */
+/* 🔥 完全修正：中央＆ズレ防止 */
 #canvas{
- width:120% !important;
- max-width:none;
+ width:92%;
+ aspect-ratio:16/9;
  display:block;
  margin:10px auto;
  border-radius:12px;
 }
-canvas{aspect-ratio:16/9;}
 
 .captureBtn{
  position:fixed;
@@ -57,7 +56,7 @@ canvas{aspect-ratio:16/9;}
  border:5px solid #ccc;
 }
 
-.wrap{position:relative;display:inline-block;}
+.wrap{position:relative;display:inline-block;width:100%;}
 .arrow{
  position:absolute;
  top:50%;
@@ -67,8 +66,8 @@ canvas{aspect-ratio:16/9;}
  background:#222;color:white;
  z-index:10;
 }
-.left{left:5px;}
-.right{right:5px;}
+.left{left:10px;}
+.right{right:10px;}
 
 #flash,#loading{
  position:fixed;
@@ -258,13 +257,14 @@ function edit(){
  show();
 }
 
+/* 🔥 完全ズレ修正 */
 function show(){
  let img=new Image();
  img.src=state.tempImgs[state.editIndex];
  img.onload=()=>{
-  const rect=canvas.getBoundingClientRect();
-  canvas.width=rect.width;
-  canvas.height=rect.height;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img,0,0,canvas.width,canvas.height);
  };
@@ -272,9 +272,14 @@ function show(){
 
 function draw(e){
  e.preventDefault();
- const rect=canvas.getBoundingClientRect();
- const x=e.touches[0].clientX-rect.left;
- const y=e.touches[0].clientY-rect.top;
+
+ const rect = canvas.getBoundingClientRect();
+ const scaleX = canvas.width / rect.width;
+ const scaleY = canvas.height / rect.height;
+
+ const x = (e.touches[0].clientX - rect.left) * scaleX;
+ const y = (e.touches[0].clientY - rect.top) * scaleY;
+
  ctx.fillStyle="red";
  ctx.fillRect(x,y,5,5);
 }
@@ -344,7 +349,6 @@ async function startReview(mode){
  render();
 }
 
-/* 復習画面 */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return document.getElementById("app").innerHTML="データなし";
@@ -366,19 +370,16 @@ function review(){
  `;
 }
 
-/* ページ単位移動 */
 function nextImg(){
  let d=state.reviewData[state.reviewIndex];
  let list=state.modeQA==="q"?d.questions:d.answers;
 
- if(state.reviewSubIndex < list.length-1){
+ if(state.reviewSubIndex<list.length-1){
   state.reviewSubIndex++;
- }else{
-  if(state.reviewIndex < state.reviewData.length-1){
-   state.reviewIndex++;
-   state.reviewSubIndex=0;
-   state.modeQA="q";
-  }
+ }else if(state.reviewIndex<state.reviewData.length-1){
+  state.reviewIndex++;
+  state.reviewSubIndex=0;
+  state.modeQA="q";
  }
  render();
 }
@@ -395,14 +396,11 @@ function prevImg(){
  render();
 }
 
-/* 保存 */
 function saveProgress(){
  state.continueIndex=state.reviewIndex;
  state.continueSubIndex=state.reviewSubIndex;
-
  localStorage.setItem("continueIndex",state.continueIndex);
  localStorage.setItem("continueSubIndex",state.continueSubIndex);
-
  flash("保存完了");
 }
 
