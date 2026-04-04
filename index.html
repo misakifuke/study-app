@@ -240,7 +240,7 @@ async function send(){
  render();
 }
 
-/* ===== 復習（修正済み） ===== */
+/* ===== 復習（完全修正） ===== */
 async function startReview(mode){
  save();
  loading(true);
@@ -248,8 +248,16 @@ async function startReview(mode){
  let res=await fetch(URL);
  let all=await res.json();
 
- let today=new Date();
- function diff(d){return Math.floor((today-new Date(d))/86400000);}
+ function diff(d){
+  let t=new Date();
+  let a=new Date(d);
+
+  // 🔥時間を消す（最重要）
+  t.setHours(0,0,0,0);
+  a.setHours(0,0,0,0);
+
+  return Math.floor((t-a)/86400000);
+ }
 
  let list=[];
  all.forEach(x=>{
