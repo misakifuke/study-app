@@ -37,7 +37,7 @@ video,img{
  margin:10px auto;
 }
 
-/* 🔥 編集だけ1.3倍 */
+/* 編集1.3倍 */
 #canvas{
  width:120% !important;
  max-width:none;
@@ -45,12 +45,7 @@ video,img{
  margin:10px auto;
  border-radius:12px;
 }
-
-/* 通常canvas（他には影響なし） */
-canvas{
- aspect-ratio:16/9;
- object-fit:cover;
-}
+canvas{aspect-ratio:16/9;}
 
 .captureBtn{
  position:fixed;
@@ -108,7 +103,8 @@ let state={
  reviewData:[],
  reviewIndex:0,
  reviewSubIndex:0,
- modeQA:"q"
+ modeQA:"q",
+ continueIndex:0
 };
 
 let video,canvas,ctx;
@@ -152,6 +148,7 @@ function home(){
   <button class="orange" onclick="startReview('alpha')">α</button>
   <button class="red" onclick="startReview('plus')">＋</button>
   <button class="purple" onclick="startReview('all')">総復習</button>
+  <button class="dark" onclick="startReview('continue')">続きから総復習</button>
  `;
 }
 
@@ -264,9 +261,9 @@ function show(){
  let img=new Image();
  img.src=state.tempImgs[state.editIndex];
  img.onload=()=>{
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
+  const rect=canvas.getBoundingClientRect();
+  canvas.width=rect.width;
+  canvas.height=rect.height;
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img,0,0,canvas.width,canvas.height);
  };
@@ -274,9 +271,9 @@ function show(){
 
 function draw(e){
  e.preventDefault();
- const rect = canvas.getBoundingClientRect();
- const x = e.touches[0].clientX - rect.left;
- const y = e.touches[0].clientY - rect.top;
+ const rect=canvas.getBoundingClientRect();
+ const x=e.touches[0].clientX-rect.left;
+ const y=e.touches[0].clientY-rect.top;
  ctx.fillStyle="red";
  ctx.fillRect(x,y,5,5);
 }
@@ -310,8 +307,73 @@ async function send(){
 
  loading(false);
 
- state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,reviewSubIndex:0,modeQA:"q"};
+ state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,reviewSubIndex:0,modeQA:"q",continueIndex:0};
  history=[];
+ render();
+}
+
+/* 復習 */
+async function startReview(mode){
+ save();
+ loading(true);
+
+ let res=await fetch(URL);
+ let all=await res.json();
+
+ if(mode==="continue"){
+  state.reviewData=all;
+  state.reviewIndex=state.continueIndex || 0;
+ }else{
+  state.reviewData=all;
+  state.reviewIndex=0;
+ }
+
+ state.reviewSubIndex=0;
+ state.modeQA="q";
+ state.screen="review";
+
+ loading(false);
+ render();
+}
+
+function review(){
+ let d=state.reviewData[state.reviewIndex];
+ if(!d)return document.getElementById("app").innerHTML="データなし";
+
+ let list=state.modeQA==="q"?d.questions:d.answers;
+
+ document.getElementById("app").innerHTML=`
+  <h3>${state.reviewIndex+1}/${state.reviewData.length}</h3>
+  <h4>${state.modeQA==="q"?"問題":"答え"} ${state.reviewSubIndex+1}/${list.length}</h4>
+
+  <div class="wrap">
+    <button class="arrow left" onclick="prevImg()">←</button>
+    <img src="${list[state.reviewSubIndex]}">
+    <button class="arrow right" onclick="nextImg()">→</button>
+  </div>
+
+  <button class="green" onclick="toggleQA()">切替</button>
+ `;
+}
+
+function nextImg(){
+ if(state.reviewIndex < state.reviewData.length-1){
+  state.reviewIndex++;
+ }
+ state.continueIndex = state.reviewIndex;
+ render();
+}
+
+function prevImg(){
+ if(state.reviewIndex>0){
+  state.reviewIndex--;
+ }
+ render();
+}
+
+function toggleQA(){
+ state.modeQA=state.modeQA==="q"?"a":"q";
+ state.reviewSubIndex=0;
  render();
 }
 
