@@ -38,11 +38,10 @@ video{
  margin:10px auto;
 }
 
-/* 画像（そのまま・引き伸ばしなし） */
+/* 🔥 画像＝そのまま */
 img{
  width:92%;
  height:auto;
- object-fit:contain;
  border-radius:12px;
  display:block;
  margin:10px auto;
@@ -182,33 +181,26 @@ function register(){
  startCamera();
 }
 
-/* 横取得 */
+/* 横固定取得 */
 async function startCamera(){
  const s=await navigator.mediaDevices.getUserMedia({
-  video:{facingMode:"environment"}
+  video:{
+   facingMode:"environment",
+   aspectRatio:16/9
+  }
  });
  video.srcObject=s;
 }
 
-/* 🔥 完全修正：縦なら回転して横にする */
+/* 🔥 完全そのまま保存（回転なし） */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
 
- let w=video.videoWidth;
- let h=video.videoHeight;
+ c.width=video.videoWidth;
+ c.height=video.videoHeight;
 
- if(h>w){
-  c.width=h;
-  c.height=w;
-  ctx.translate(h/2,w/2);
-  ctx.rotate(Math.PI/2);
-  ctx.drawImage(video,-w/2,-h/2);
- }else{
-  c.width=w;
-  c.height=h;
-  ctx.drawImage(video,0,0);
- }
+ ctx.drawImage(video,0,0);
 
  captured=c.toDataURL();
 
@@ -240,7 +232,7 @@ function retake(){
  document.getElementById("controls").innerHTML="";
 }
 
-/* 編集 */
+/* 編集（そのまま描画） */
 function goEdit(){
  if(state.tempImgs.length===0)return alert("画像なし");
  save();
@@ -278,7 +270,6 @@ function show(){
  img.onload=()=>{
   canvas.width=img.width;
   canvas.height=img.height;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img,0,0);
  };
 }
@@ -363,11 +354,7 @@ async function startReview(mode){
   state.reviewData=all;
  }
 
- state.reviewIndex=state.reviewIndex||0;
- state.reviewSubIndex=state.reviewSubIndex||0;
- state.modeQA="q";
  state.screen="review";
-
  loading(false);
  render();
 }
