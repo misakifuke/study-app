@@ -44,15 +44,9 @@ video,img,canvas{
  background:#fff;border:4px solid #ccc;
 }
 
-.wrap{
- position:relative;
- overflow:hidden;
-}
+.wrap{position:relative;overflow:hidden;}
 
-/* 🔥 アニメーション用 */
-.slide{
- transition:transform 0.25s ease;
-}
+.slide{transition:transform 0.25s ease;}
 
 .arrow{
  position:absolute;
@@ -101,7 +95,6 @@ let cachedData=null;
 
 /* スワイプ */
 let startX=0,endX=0;
-let sliding=false;
 
 let state={
  screen:"home",
@@ -186,7 +179,8 @@ function capture(){
  c.width=1280;c.height=720;
  cx.drawImage(video,crop.sx,crop.sy,crop.sw,crop.sh,0,0,1280,720);
 
- let data=c.toDataURL("image/jpeg",0.7);
+ /* 🔥 高画質維持しつつ軽量 */
+ let data=c.toDataURL("image/jpeg",0.6);
 
  video.style.display="none";
  let prev=document.getElementById("prev");
@@ -313,12 +307,22 @@ function startContinue(){
  startReview(state.reviewMode,true);
 }
 
-/* データ取得 */
+/* 🔥 キャッシュ強化 */
 async function fetchData(){
  if(cachedData) return cachedData;
+
+ let saved=localStorage.getItem("cache");
+ if(saved){
+  cachedData=JSON.parse(saved);
+  return cachedData;
+ }
+
  let res=await fetch(URL);
  let data=await res.json();
+
  cachedData=data;
+ localStorage.setItem("cache",JSON.stringify(data));
+
  return data;
 }
 
@@ -329,7 +333,6 @@ async function startReview(mode,isContinue=false){
 
  showLoading();
 
- setTimeout(async ()=>{
  try{
   let data=await fetchData();
 
@@ -367,7 +370,6 @@ async function startReview(mode,isContinue=false){
 
  hideLoading();
  render();
- },100);
 }
 
 /* レビュー（スワイプ＋アニメ） */
