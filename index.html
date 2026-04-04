@@ -44,7 +44,15 @@ video,img,canvas{
  background:#fff;border:4px solid #ccc;
 }
 
-.wrap{position:relative;}
+.wrap{
+ position:relative;
+ overflow:hidden;
+}
+
+/* 🔥 アニメーション用 */
+.slide{
+ transition:transform 0.25s ease;
+}
 
 .arrow{
  position:absolute;
@@ -90,6 +98,10 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 let history=[];
 let video,canvas,ctx;
 let cachedData=null;
+
+/* スワイプ */
+let startX=0,endX=0;
+let sliding=false;
 
 let state={
  screen:"home",
@@ -157,13 +169,8 @@ async function cam(){
  <button class="captureBtn" onclick="capture()"></button>
  <div id="btns"></div>
 
- ${!state.isAnswer 
-   ? '<button class="green" onclick="goEdit()">編集</button>' 
-   : ''}
-
- ${state.isAnswer 
-   ? '<button class="red" onclick="send()">送信</button>' 
-   : ''}
+ ${!state.isAnswer ? '<button class="green" onclick="goEdit()">編集</button>' : ''}
+ ${state.isAnswer ? '<button class="red" onclick="send()">送信</button>' : ''}
  `;
  video=document.getElementById("video");
  let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
@@ -306,7 +313,7 @@ function startContinue(){
  startReview(state.reviewMode,true);
 }
 
-/* データ取得（キャッシュ） */
+/* データ取得 */
 async function fetchData(){
  if(cachedData) return cachedData;
  let res=await fetch(URL);
@@ -363,7 +370,7 @@ async function startReview(mode,isContinue=false){
  },100);
 }
 
-/* レビュー */
+/* レビュー（スワイプ＋アニメ） */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return app.innerHTML="データなし";
@@ -385,15 +392,40 @@ function review(){
  セット ${currentSet}/${totalSet}（${currentPage}/${totalPage}）
  </div>
 
- <div class="wrap">
- <button class="arrow left" onclick="prevR()">←</button>
- <img src="${list[state.reviewSub]}">
- <button class="arrow right" onclick="nextR()">→</button>
+ <div class="wrap" id="swipeArea">
+ <img id="slideImg" class="slide" src="${list[state.reviewSub]}">
  </div>
 
  <button class="green" onclick="toggle()">切替</button>
  ${saveBtn}
  `;
+
+ let area=document.getElementById("swipeArea");
+
+ area.addEventListener("touchstart",e=>{
+  startX=e.touches[0].clientX;
+ });
+
+ area.addEventListener("touchend",e=>{
+  endX=e.changedTouches[0].clientX;
+  handleSwipe();
+ });
+}
+
+function handleSwipe(){
+ let diff=endX-startX;
+ if(Math.abs(diff)<50) return;
+
+ let img=document.getElementById("slideImg");
+ if(!img) return;
+
+ if(diff<0){
+  img.style.transform="translateX(-100%)";
+  setTimeout(()=>{nextR();},200);
+ }else{
+  img.style.transform="translateX(100%)";
+  setTimeout(()=>{prevR();},200);
+ }
 }
 
 function nextR(){
