@@ -28,20 +28,22 @@ button{
  background:#222;color:white;
 }
 
-/* カメラ横固定 */
+/* カメラ表示（横固定） */
 video{
  width:92%;
  aspect-ratio:16/9;
- object-fit:cover;
+ object-fit:contain; /* ← coverじゃない */
+ background:black;
  border-radius:12px;
  display:block;
  margin:10px auto;
 }
 
-/* 画像そのまま */
+/* 画像（そのまま） */
 img{
  width:92%;
  height:auto;
+ object-fit:contain;
  border-radius:12px;
  display:block;
  margin:10px auto;
@@ -181,7 +183,7 @@ function register(){
  startCamera();
 }
 
-/* カメラ取得 */
+/* カメラ */
 async function startCamera(){
  const s=await navigator.mediaDevices.getUserMedia({
   video:{facingMode:"environment"}
@@ -189,19 +191,20 @@ async function startCamera(){
  video.srcObject=s;
 }
 
-/* 🔥 見たままキャプチャ（完全版） */
+/* 🔥 完全一致キャプチャ */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
 
- let rect=video.getBoundingClientRect();
+ let w = video.videoWidth;
+ let h = video.videoHeight;
 
- c.width=rect.width;
- c.height=rect.height;
+ c.width = w;
+ c.height = h;
 
- ctx.drawImage(video,0,0,c.width,c.height);
+ ctx.drawImage(video, 0, 0, w, h);
 
- captured=c.toDataURL();
+ captured = c.toDataURL();
 
  video.style.display="none";
  let img=document.getElementById("preview");
