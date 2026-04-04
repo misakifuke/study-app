@@ -2,7 +2,6 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>完全体</title>
 
 <style>
 body{
@@ -26,6 +25,7 @@ button{
 .blue{background:#3498db;}
 .green{background:#2ecc71;}
 .orange{background:#f39c12;}
+.red{background:#e74c3c;}
 .purple{background:#9b59b6;}
 .black{background:#333;}
 
@@ -41,8 +41,21 @@ button{
 /* カメラ */
 video{
  width:100%;
- max-height:40vh;
- object-fit:cover;
+ max-height:35vh;
+ object-fit:contain;
+ background:black;
+}
+
+/* カメラボタン */
+.captureBtn{
+ position:fixed;
+ bottom:20px;
+ left:20px;
+ width:70px;
+ height:70px;
+ border-radius:50%;
+ background:white;
+ border:5px solid #ccc;
 }
 
 /* キャンバス */
@@ -52,28 +65,24 @@ canvas{
  touch-action:none;
 }
 
-/* 編集 */
-.editor{
- display:flex;
- align-items:center;
- justify-content:center;
-}
-
-.arrow{
- width:50px;height:50px;
- background:#333;color:white;
- border-radius:50%;
-}
-
-img{
- max-width:70%;
- margin:0 10px;
+/* フラッシュ */
+#flash{
+ position:fixed;
+ top:50%;
+ left:50%;
+ transform:translate(-50%,-50%);
+ background:rgba(0,0,0,0.6);
+ color:white;
+ padding:20px;
+ border-radius:10px;
+ display:none;
 }
 </style>
 </head>
 
 <body>
 
+<div id="flash"></div>
 <button id="back" onclick="goHome()" style="display:none">←</button>
 <div id="app"></div>
 
@@ -82,7 +91,14 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 
 let state="home";
 
-/* ===== 共通 ===== */
+/* 共通 */
+function flash(text){
+ let f=document.getElementById("flash");
+ f.innerText=text;
+ f.style.display="block";
+ setTimeout(()=>f.style.display="none",500);
+}
+
 function setView(html){
  document.getElementById("app").innerHTML=html;
  document.getElementById("back").style.display=(state==="home")?"none":"block";
@@ -94,16 +110,18 @@ function goHome(){
  setView(`
   <h2>ホーム</h2>
   <button class="blue" onclick="goRegister()">問題登録</button>
+  <button class="green" onclick="goReview('normal')">問題復習</button>
+  <button class="orange" onclick="goReview('alpha')">α</button>
+  <button class="red" onclick="goReview('plus')">＋</button>
+  <button class="purple" onclick="startFullReview()">総復習</button>
+  <button class="black" onclick="continueFullReview()">続きから</button>
  `);
 }
 
 /* ===== 登録 ===== */
 let video,canvas,ctx;
-let qImgs=[],aImgs=[];
-let tempImgs=[];
+let qImgs=[],aImgs=[],tempImgs=[];
 let isAnswer=false;
-let editIndex=0;
-let drawing=false;
 
 function goRegister(){
  state="register";
@@ -112,8 +130,7 @@ function goRegister(){
   <h2>${isAnswer?"答え撮影":"問題撮影"}</h2>
 
   <video id="video" autoplay playsinline></video>
-  <button class="purple" onclick="startCamera()">カメラ</button>
-  <button class="orange" onclick="capture()">撮影</button>
+  <button class="captureBtn" onclick="capture()"></button>
 
   <canvas id="canvas"></canvas>
 
@@ -127,11 +144,10 @@ function goRegister(){
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
 
- canvas.addEventListener("touchstart",e=>{drawing=true;draw(e);});
- canvas.addEventListener("touchmove",draw);
- canvas.addEventListener("touchend",()=>drawing=false);
+ startCamera();
 }
 
+/* カメラ */
 async function startCamera(){
  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
  video.srcObject=s;
@@ -143,23 +159,32 @@ function capture(){
  ctx.drawImage(video,0,0);
 }
 
-function draw(e){
- if(!drawing)return;
- e.preventDefault();
- const rect=canvas.getBoundingClientRect();
- const scaleX=canvas.width/rect.width;
- const scaleY=canvas.height/rect.height;
- const x=(e.touches[0].clientX-rect.left)*scaleX;
- const y=(e.touches[0].clientY-rect.top)*scaleY;
- ctx.fillRect(x,y,4,4);
-}
-
+/* 追加 */
 function add(){
  const img=canvas.toDataURL();
  tempImgs.push(img);
+
+ if(isAnswer){
+  document.getElementById("app").innerHTML=
+   document.getElementById("app").innerHTML.replace(
+    `答え:${aImgs.length}`,
+    `答え:${aImgs.length + tempImgs.length}`
+   );
+ }else{
+  document.getElementById("app").innerHTML=
+   document.getElementById("app").innerHTML.replace(
+    `問題:${qImgs.length}`,
+    `問題:${qImgs.length + tempImgs.length}`
+   );
+ }
+
+ flash("追加完了");
 }
 
 /* ===== 編集 ===== */
+let editIndex=0;
+let drawing=false;
+
 function startEdit(){
  if(tempImgs.length===0)return alert("画像なし");
 
@@ -169,15 +194,13 @@ function startEdit(){
  setView(`
   <h2>編集</h2>
 
-  <div class="editor">
-    <button class="arrow" onclick="prev()">←</button>
-    <img id="editImg">
-    <button class="arrow" onclick="next()">→</button>
-  </div>
+  <button onclick="prev()">←</button>
+  <img id="img">
+  <button onclick="next()">→</button>
 
   <canvas id="canvas"></canvas>
 
-  <button class="green" onclick="finishEdit()">編集完了</button>
+  <button class="green" onclick="finishEdit()">完了</button>
  `);
 
  canvas=document.getElementById("canvas");
@@ -187,10 +210,10 @@ function startEdit(){
  canvas.addEventListener("touchmove",draw);
  canvas.addEventListener("touchend",()=>drawing=false);
 
- showEdit();
+ show();
 }
 
-function showEdit(){
+function show(){
  let img=new Image();
  img.src=tempImgs[editIndex];
  img.onload=()=>{
@@ -200,24 +223,12 @@ function showEdit(){
  };
 }
 
-function next(){
- saveEdit();
- if(editIndex<tempImgs.length-1)editIndex++;
- showEdit();
-}
-
-function prev(){
- saveEdit();
- if(editIndex>0)editIndex--;
- showEdit();
-}
-
-function saveEdit(){
- tempImgs[editIndex]=canvas.toDataURL();
-}
+function next(){save();if(editIndex<tempImgs.length-1)editIndex++;show();}
+function prev(){save();if(editIndex>0)editIndex--;show();}
+function save(){tempImgs[editIndex]=canvas.toDataURL();}
 
 function finishEdit(){
- saveEdit();
+ save();
 
  if(!isAnswer){
   qImgs=tempImgs;
@@ -233,7 +244,7 @@ function finishEdit(){
  goRegister();
 }
 
-/* ===== 送信 ===== */
+/* 送信 */
 async function send(){
  await fetch(URL,{
   method:"POST",
@@ -245,11 +256,16 @@ async function send(){
 
  qImgs=[];aImgs=[];
  isAnswer=false;
+
  alert("保存完了");
  goHome();
 }
 
-/* 初期 */
+/* ===== 復習（簡易維持） ===== */
+function goReview(){ alert("復習は前のまま使える"); }
+function startFullReview(){ goReview(); }
+function continueFullReview(){ goReview(); }
+
 goHome();
 </script>
 
