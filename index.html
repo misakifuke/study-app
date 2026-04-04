@@ -6,49 +6,73 @@
 
 <style>
 body {
- font-family:sans-serif;
  margin:0;
+ font-family:sans-serif;
  text-align:center;
  background:#f5f5f5;
 }
 
 h2 { margin-top:60px; }
 
-/* 🔥 ボタン共通 */
+/* ボタン */
 button {
  width:85%;
- height:75px;
- font-size:18px;
+ height:70px;
  margin:10px;
  border:none;
- border-radius:14px;
+ border-radius:12px;
  color:white;
+ font-size:18px;
 }
 
-/* 🎨 色分け */
-.blue { background:#3498db; }
-.green { background:#2ecc71; }
-.orange { background:#f39c12; }
-.red { background:#e74c3c; }
-.purple { background:#9b59b6; }
-.black { background:#333; }
+/* 色 */
+.blue{background:#3498db;}
+.green{background:#2ecc71;}
+.orange{background:#f39c12;}
+.red{background:#e74c3c;}
+.purple{background:#9b59b6;}
+.black{background:#333;}
 
-/* 🔙 戻る */
-#back {
+/* 戻る */
+#back{
  position:fixed;
  top:10px;
  left:10px;
- width:55px;
- height:55px;
- z-index:10;
+ width:50px;
+ height:50px;
  background:#444;
 }
 
-/* 🔄 ローディング */
-#loading {
+/* モードボタン */
+.mode{
  position:fixed;
- top:0; left:0;
- width:100%; height:100%;
+ top:10px;
+ right:10px;
+ width:80px;
+ height:40px;
+ font-size:14px;
+}
+
+.mode2{ right:100px; }
+
+/* モード表示 */
+#modeFlash{
+ position:fixed;
+ top:50%;
+ left:50%;
+ transform:translate(-50%,-50%);
+ font-size:30px;
+ background:rgba(0,0,0,0.6);
+ color:white;
+ padding:20px;
+ border-radius:10px;
+ display:none;
+}
+
+/* ローディング */
+#loading{
+ position:fixed;
+ width:100%;height:100%;
  background:rgba(0,0,0,0.6);
  color:white;
  display:none;
@@ -56,36 +80,37 @@ button {
  justify-content:center;
 }
 
-/* 📷 画像 */
-video, canvas, img {
+/* カメラ */
+video{
  width:100%;
- max-width:420px;
+ height:50vh;
+ object-fit:cover;
 }
 
-/* 🔥 復習 */
-.review-box {
- position:relative;
- display:inline-block;
-}
-
-.arrow {
- position:absolute;
- top:50%;
- transform:translateY(-50%);
- width:50px;
- height:50px;
- border-radius:50%;
- background:rgba(0,0,0,0.5);
- color:white;
- font-size:20px;
-}
-
-.left { left:5px; }
-.right { right:5px; }
-
-canvas {
+/* キャンバス */
+canvas{
+ width:100%;
  border:1px solid black;
  touch-action:none;
+}
+
+/* 復習 */
+.review{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+}
+
+.arrow{
+ width:50px;height:50px;
+ background:#333;
+ color:white;
+ border-radius:50%;
+}
+
+img{
+ max-width:70%;
+ margin:0 10px;
 }
 </style>
 </head>
@@ -93,6 +118,8 @@ canvas {
 <body>
 
 <div id="loading">しばらくお待ちください…</div>
+<div id="modeFlash"></div>
+
 <button id="back" onclick="goHome()" style="display:none">←</button>
 
 <div id="app"></div>
@@ -102,8 +129,16 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 
 let state="home";
 
+/* 共通 */
 function loading(v){
  document.getElementById("loading").style.display=v?"flex":"none";
+}
+
+function flash(text){
+ let f=document.getElementById("modeFlash");
+ f.innerText=text;
+ f.style.display="block";
+ setTimeout(()=>f.style.display="none",500);
 }
 
 function setView(html){
@@ -111,21 +146,21 @@ function setView(html){
  document.getElementById("back").style.display=(state==="home")?"none":"block";
 }
 
-/* ===== ホーム ===== */
+/* ホーム */
 function goHome(){
  state="home";
  setView(`
-  <h2>📚 ホーム</h2>
+  <h2>ホーム</h2>
   <button class="blue" onclick="goRegister()">問題登録</button>
   <button class="green" onclick="goReview('normal')">問題復習</button>
-  <button class="orange" onclick="goReview('alpha')">問題復習α</button>
-  <button class="red" onclick="goReview('plus')">問題復習＋</button>
+  <button class="orange" onclick="goReview('alpha')">α</button>
+  <button class="red" onclick="goReview('plus')">＋</button>
   <button class="purple" onclick="startFullReview()">総復習</button>
-  <button class="black" onclick="continueFullReview()">続きから総復習</button>
+  <button class="black" onclick="continueFullReview()">続きから</button>
  `);
 }
 
-/* ===== 登録 ===== */
+/* 登録 */
 let video,canvas,ctx;
 let qImgs=[],aImgs=[];
 let mode="question";
@@ -135,9 +170,8 @@ function goRegister(){
  state="register";
 
  setView(`
-  <h2>問題登録</h2>
-  <button class="blue" onclick="mode='question'">問題</button>
-  <button class="green" onclick="mode='answer'">答え</button>
+  <button class="mode mode2 blue" onclick="setMode('question')">問題</button>
+  <button class="mode green" onclick="setMode('answer')">答え</button>
 
   <video id="video" autoplay playsinline></video>
   <button class="purple" onclick="startCamera()">カメラ</button>
@@ -158,6 +192,11 @@ function goRegister(){
  canvas.addEventListener("touchstart",e=>{drawing=true;draw(e);});
  canvas.addEventListener("touchmove",draw);
  canvas.addEventListener("touchend",()=>drawing=false);
+}
+
+function setMode(m){
+ mode=m;
+ flash(m==="question"?"問題モード":"答えモード");
 }
 
 async function startCamera(){
@@ -210,19 +249,7 @@ async function send(){
  alert("保存完了");
 }
 
-/* ===== 日付 ===== */
-function getDateOnly(date){
- let d=new Date(date);
- return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
-}
-
-function getTargetDate(days){
- let d=new Date();
- d.setDate(d.getDate()-days);
- return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
-}
-
-/* ===== 復習 ===== */
+/* 復習 */
 let data=[],set=0,page=0,mode2="q";
 
 function startFullReview(){
@@ -231,29 +258,38 @@ function startFullReview(){
 }
 
 function continueFullReview(){
- let saved = localStorage.getItem("reviewIndex");
- set = saved ? parseInt(saved) : 0;
- goReview("all", true);
+ let saved=localStorage.getItem("reviewIndex");
+ set=saved?parseInt(saved):0;
+ goReview("all",true);
 }
 
-function goReview(type, keepIndex=false){
+function getDateOnly(d){
+ let x=new Date(d);
+ return x.getFullYear()+"-"+(x.getMonth()+1)+"-"+x.getDate();
+}
+
+function getTargetDate(days){
+ let d=new Date();
+ d.setDate(d.getDate()-days);
+ return getDateOnly(d);
+}
+
+function goReview(type,keep=false){
  state="review";
  loading(true);
 
  fetch(URL).then(r=>r.json()).then(d=>{
+  let t=[];
+  if(type==="alpha")t=[3,7,14];
+  if(type==="plus")t=[1,3,7,14];
 
-  let targets=[];
-  if(type==="alpha") targets=[3,7,14];
-  if(type==="plus") targets=[1,3,7,14];
-
-  data = d.filter(x=>{
-    if(type==="normal"||type==="all") return true;
-    let date=getDateOnly(x.date);
-    return targets.some(day=>date===getTargetDate(day));
+  data=d.filter(x=>{
+   if(type==="normal"||type==="all")return true;
+   return t.some(day=>getDateOnly(x.date)===getTargetDate(day));
   });
 
-  if(!keepIndex){ set=0; }
-  page=0; mode2="q";
+  if(!keep)set=0;
+  page=0;mode2="q";
 
   loading(false);
   drawReview();
@@ -274,28 +310,26 @@ function drawReview(){
  setView(`
   <h2>復習</h2>
 
-  <div class="review-box">
-    <button class="arrow left" onclick="prev()">←</button>
+  <div class="review">
+    <button class="arrow" onclick="prev()">←</button>
     <img src="${imgs[page]}">
-    <button class="arrow right" onclick="next()">→</button>
+    <button class="arrow" onclick="next()">→</button>
   </div>
 
-  <button class="green" onclick="switchQA()">問題⇄答え</button>
-  <button class="purple" onclick="nextSet()">次のセット</button>
+  <button class="green" onclick="switchQA()">切替</button>
+  <button class="purple" onclick="nextSet()">次</button>
  `);
 }
 
-function next(){ if(page<imgLen()-1)page++; drawReview(); }
-function prev(){ if(page>0)page--; drawReview(); }
-function switchQA(){ mode2=mode2==="q"?"a":"q"; page=0; drawReview(); }
-function nextSet(){ set=(set+1)%data.length; page=0; drawReview(); }
-
+function next(){if(page<imgLen()-1)page++;drawReview();}
+function prev(){if(page>0)page--;drawReview();}
+function switchQA(){mode2=mode2==="q"?"a":"q";page=0;drawReview();}
+function nextSet(){set=(set+1)%data.length;page=0;drawReview();}
 function imgLen(){
  let s=data[set];
  return mode2==="q"?s.questions.length:s.answers.length;
 }
 
-/* 初期 */
 goHome();
 </script>
 
