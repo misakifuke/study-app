@@ -4,35 +4,69 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
-button{width:85%;height:65px;margin:10px;border:none;border-radius:12px;color:white;font-size:18px;}
+
+button{
+ width:90%;
+ height:75px;
+ margin:12px;
+ border:none;
+ border-radius:16px;
+ color:white;
+ font-size:18px;
+}
+
 .blue{background:#3498db;}
 .green{background:#2ecc71;}
 .orange{background:#f39c12;}
 .red{background:#e74c3c;}
 .purple{background:#9b59b6;}
 .dark{background:#222;}
-#back{position:fixed;top:10px;left:10px;width:50px;height:50px;background:#222;color:white;}
-video{width:90%;height:55vh;object-fit:cover;border-radius:10px;}
-canvas{width:90%;max-height:55vh;border:1px solid black;border-radius:10px;}
-img{width:90%;max-height:60vh;}
-.captureBtn{
- position:fixed;bottom:20px;left:20px;width:70px;height:70px;
- border-radius:50%;background:white;border:5px solid #ccc;
-}
-.arrow{
- position:absolute;top:50%;transform:translateY(-50%);
- width:50px;height:50px;border-radius:50%;
+
+#back{
+ position:fixed;
+ top:10px;left:10px;
+ width:55px;height:55px;
  background:#222;color:white;
 }
-.left{left:-60px;}
-.right{right:-60px;}
+
+video,canvas,img{
+ width:92%;
+ max-height:60vh;
+ border-radius:12px;
+}
+
+.captureBtn{
+ position:fixed;
+ bottom:25px;left:25px;
+ width:75px;height:75px;
+ border-radius:50%;
+ background:white;
+ border:5px solid #ccc;
+}
+
 .wrap{position:relative;display:inline-block;}
+
+.arrow{
+ position:absolute;
+ top:50%;
+ transform:translateY(-50%);
+ width:55px;height:55px;
+ border-radius:50%;
+ background:#222;color:white;
+}
+.left{left:-50px;}
+.right{right:-50px;}
+
 #flash,#loading{
- position:fixed;top:50%;left:50%;
+ position:fixed;
+ top:50%;left:50%;
  transform:translate(-50%,-50%);
- background:rgba(0,0,0,0.8);
- color:white;padding:20px;border-radius:10px;
+ background:rgba(0,0,0,0.85);
+ color:white;
+ padding:22px;
+ border-radius:12px;
  display:none;
+ font-size:18px;
 }
 </style>
 </head>
@@ -47,12 +81,13 @@ img{width:90%;max-height:60vh;}
 <script>
 const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqiATr_Fti0z_Z7vGykZADJKsa3GLlPnbBPQeB-C0NA/exec";
 
-/* ===== 状態 ===== */
 let history=[];
+let currentMode="normal";
+
 let state={
  screen:"home",
- qImgs:[], aImgs:[], tempImgs:[],
- isAnswer:false, editIndex:0,
+ qImgs:[],aImgs:[],tempImgs:[],
+ isAnswer:false,editIndex:0,
  reviewData:[],
  reviewIndex:0,
  reviewSubIndex:0,
@@ -240,10 +275,11 @@ async function send(){
  render();
 }
 
-/* ===== 復習（完全修正） ===== */
+/* ===== 復習 ===== */
 async function startReview(mode){
  save();
  loading(true);
+ currentMode=mode;
 
  let res=await fetch(URL);
  let all=await res.json();
@@ -251,18 +287,14 @@ async function startReview(mode){
  function diff(d){
   let t=new Date();
   let a=new Date(d);
-
-  // 🔥時間を消す（最重要）
   t.setHours(0,0,0,0);
   a.setHours(0,0,0,0);
-
   return Math.floor((t-a)/86400000);
  }
 
  let list=[];
  all.forEach(x=>{
   let d=diff(x.date);
-
   if(mode==="normal" && d===1) list.push(x);
   if(mode==="alpha" && [3,7,14].includes(d)) list.push(x);
   if(mode==="plus" && [1,3,7,14].includes(d)) list.push(x);
@@ -270,13 +302,12 @@ async function startReview(mode){
  });
 
  if(mode==="continue"){
-  let idx=localStorage.getItem("last")||0;
-  state.reviewIndex=parseInt(idx);
+  let saved=JSON.parse(localStorage.getItem("save_all")||"{}");
   list=all;
+  state.reviewIndex=saved.index||0;
  }
 
  state.reviewData=list;
- state.reviewIndex=0;
  state.reviewSubIndex=0;
  state.modeQA="q";
  state.screen="review";
@@ -285,6 +316,13 @@ async function startReview(mode){
  render();
 }
 
+function saveProgress(){
+ localStorage.setItem("save_"+currentMode,JSON.stringify({
+  index:state.reviewIndex
+ }));
+}
+
+/* ===== 表示 ===== */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return document.getElementById("app").innerHTML="データなし";
@@ -300,8 +338,6 @@ function review(){
     <img src="${list[state.reviewSubIndex]}">
     <button class="arrow right" onclick="nextImg()">→</button>
   </div>
-
-  <br>
 
   <button class="green" onclick="toggleQA()">
     ${state.modeQA==="q"?"答えへ":"問題へ"}
@@ -320,7 +356,7 @@ function nextImg(){
     state.reviewIndex++;
     state.reviewSubIndex=0;
     state.modeQA="q";
-    localStorage.setItem("last",state.reviewIndex);
+    saveProgress(); // 🔥ここ重要
   }
  }
  render();
@@ -345,7 +381,6 @@ function toggleQA(){
  render();
 }
 
-/* 初期 */
 render();
 </script>
 </body>
