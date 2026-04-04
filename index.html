@@ -25,10 +25,17 @@ img{width:90%;max-height:60vh;}
 }
 
 .arrow{
- position:fixed;top:50%;transform:translateY(-50%);
- width:50px;height:50px;border-radius:50%;background:#222;color:white;
+ position:absolute;
+ top:50%;
+ transform:translateY(-50%);
+ width:50px;height:50px;
+ border-radius:50%;
+ background:#222;color:white;
 }
-.left{left:5px;} .right{right:5px;}
+.left{left:-60px;}
+.right{right:-60px;}
+
+.wrap{position:relative;display:inline-block;}
 
 #flash,#loading{
  position:fixed;top:50%;left:50%;
@@ -78,12 +85,10 @@ function flash(t){
 function loading(on){
  document.getElementById("loading").style.display=on?"block":"none";
 }
-
 function save(){
  history.push(JSON.parse(JSON.stringify(state)));
  document.getElementById("back").style.display="block";
 }
-
 function goBack(){
  if(!history.length)return;
  state=history.pop();
@@ -102,7 +107,6 @@ function render(){
 /* ===== ホーム ===== */
 function home(){
  document.getElementById("back").style.display="none";
-
  document.getElementById("app").innerHTML=`
   <h2>ホーム</h2>
   <button class="blue" onclick="goRegister()">問題登録</button>
@@ -161,7 +165,6 @@ function capture(){
 
 function add(){
  if(canvas.width===0)return alert("先に撮影");
-
  state.tempImgs.push(canvas.toDataURL());
  updateCount();
  flash("追加完了");
@@ -181,13 +184,17 @@ function goEdit(){
  render();
 }
 
+let drawing=false;
+
 function edit(){
  document.getElementById("app").innerHTML=`
   <h2>編集</h2>
 
-  <button onclick="prev()">←</button>
-  <img id="img">
-  <button onclick="next()">→</button>
+  <div class="wrap">
+    <button class="arrow left" onclick="prev()">←</button>
+    <img id="img">
+    <button class="arrow right" onclick="next()">→</button>
+  </div>
 
   <canvas id="canvas"></canvas>
 
@@ -197,7 +204,23 @@ function edit(){
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
 
+ canvas.addEventListener("touchstart",startDraw,{passive:false});
+ canvas.addEventListener("touchmove",moveDraw,{passive:false});
+ canvas.addEventListener("touchend",()=>drawing=false);
+
  show();
+}
+
+function startDraw(e){drawing=true;draw(e);}
+function moveDraw(e){if(drawing)draw(e);}
+
+function draw(e){
+ e.preventDefault();
+ const rect=canvas.getBoundingClientRect();
+ const x=(e.touches[0].clientX-rect.left)*(canvas.width/rect.width);
+ const y=(e.touches[0].clientY-rect.top)*(canvas.height/rect.height);
+ ctx.fillStyle="red";
+ ctx.fillRect(x,y,5,5);
 }
 
 function show(){
@@ -240,12 +263,7 @@ async function send(){
 
  loading(false);
 
- state={
-  screen:"home",
-  qImgs:[],aImgs:[],tempImgs:[],
-  isAnswer:false,editIndex:0,
-  reviewData:[],reviewIndex:0,showAnswer:false
- };
+ state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,showAnswer:false};
  history=[];
  render();
 }
