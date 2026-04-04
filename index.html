@@ -261,9 +261,7 @@ async function send(){
    method:"POST",
    body:JSON.stringify({questions:state.qImgs,answers:state.aImgs})
   });
- }catch(e){
-  alert("送信失敗");
- }
+ }catch(e){alert("送信失敗");}
  hideLoading();
 
  state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false};
@@ -303,9 +301,7 @@ async function startReview(mode){
   state.reviewIndex=0;
   state.reviewSub=0;
   state.screen="review";
- }catch(e){
-  alert("読み込み失敗");
- }
+ }catch(e){alert("読み込み失敗");}
  hideLoading();
  render();
 }
@@ -316,18 +312,31 @@ function startContinue(){
  startReview("all");
 }
 
+/* 🔥 ここが追加ポイント（進捗表示） */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return app.innerHTML="データなし";
 
  let list=state.mode==="q"?d.questions:d.answers;
 
+ let totalSet=state.reviewData.length;
+ let currentSet=state.reviewIndex+1;
+
+ let totalPage=list.length;
+ let currentPage=state.reviewSub+1;
+
  app.innerHTML=`
- <div class="wrap">
- <button class="arrow left" onclick="prevR()">←</button>
- <img src="${list[state.reviewSub]}">
- <button class="arrow right" onclick="nextR()">→</button>
+ <div style="margin-top:10px;font-size:14px;">
+  セット ${currentSet} / ${totalSet}　
+  （ページ ${currentPage} / ${totalPage}）
  </div>
+
+ <div class="wrap">
+  <button class="arrow left" onclick="prevR()">←</button>
+  <img src="${list[state.reviewSub]}">
+  <button class="arrow right" onclick="nextR()">→</button>
+ </div>
+
  <button class="green" onclick="toggle()">切替</button>
  <button class="dark" onclick="saveProg()">保存</button>
  `;
