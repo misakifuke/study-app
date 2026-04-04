@@ -99,9 +99,7 @@ let state={
  reviewData:[],
  reviewIndex:0,
  reviewSubIndex:0,
- modeQA:"q",
- continueIndex:0,
- continueSubIndex:0
+ modeQA:"q"
 };
 
 let video,canvas,ctx;
@@ -141,11 +139,8 @@ function home(){
  document.getElementById("app").innerHTML=`
   <h2>ホーム</h2>
   <button class="blue" onclick="goRegister()">問題登録</button>
-  <button class="green" onclick="startReview('normal')">問題復習</button>
-  <button class="orange" onclick="startReview('alpha')">α</button>
-  <button class="red" onclick="startReview('plus')">＋</button>
+  <button class="green" onclick="startReview()">問題復習（1日前）</button>
   <button class="purple" onclick="startReview('all')">総復習</button>
-  <button class="dark" onclick="startReview('continue')">続きから総復習</button>
  `;
 }
 
@@ -165,12 +160,10 @@ function register(){
   ${state.isAnswer ? `<button class="red" onclick="send()">送信</button>` : ""}
 
   <div id="controls"></div>
-  <div id="count"></div>
  `;
 
  video=document.getElementById("video");
  startCamera();
- updateCount();
 }
 
 async function startCamera(){
@@ -205,8 +198,6 @@ function addOne(){
  document.getElementById("preview").style.display="none";
  video.style.display="block";
  document.getElementById("controls").innerHTML="";
-
- updateCount();
 }
 
 function retake(){
@@ -214,12 +205,6 @@ function retake(){
  document.getElementById("preview").style.display="none";
  video.style.display="block";
  document.getElementById("controls").innerHTML="";
-}
-
-function updateCount(){
- let q=state.qImgs.length + (!state.isAnswer?state.tempImgs.length:0);
- let a=state.aImgs.length + (state.isAnswer?state.tempImgs.length:0);
- document.getElementById("count").innerText=`問題:${q} / 答え:${a}`;
 }
 
 /* 編集 */
@@ -254,32 +239,39 @@ function edit(){
  show();
 }
 
-/* 比率維持 */
+/* 🔥 横長最適化（見開き対応） */
 function show(){
  let img=new Image();
  img.src=state.tempImgs[state.editIndex];
  img.onload=()=>{
   const rect = canvas.getBoundingClientRect();
-  const ratio = img.width / img.height;
+  const baseRatio = 16/9;
+  const imgRatio = img.width / img.height;
 
-  canvas.width = rect.width;
-  canvas.height = rect.width / ratio;
+  let w = rect.width;
+  let h;
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  if(imgRatio > baseRatio){
+   h = w / imgRatio;
+  }else{
+   h = w / baseRatio;
+  }
+
+  canvas.width = w;
+  canvas.height = h;
+
+  ctx.clearRect(0,0,w,h);
+  ctx.drawImage(img,0,0,w,h);
  };
 }
 
 function draw(e){
  e.preventDefault();
-
  const rect = canvas.getBoundingClientRect();
  const scaleX = canvas.width / rect.width;
  const scaleY = canvas.height / rect.height;
-
  const x = (e.touches[0].clientX - rect.left) * scaleX;
  const y = (e.touches[0].clientY - rect.top) * scaleY;
-
  ctx.fillStyle="red";
  ctx.fillRect(x,y,5,5);
 }
@@ -313,36 +305,27 @@ async function send(){
 
  loading(false);
 
- state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,reviewSubIndex:0,modeQA:"q",continueIndex:0,continueSubIndex:0};
+ state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false};
  history=[];
  render();
 }
 
-/* 日付判定 */
-function isSameDay(d1,d2){
- return d1.getFullYear()===d2.getFullYear() &&
-        d1.getMonth()===d2.getMonth() &&
-        d1.getDate()===d2.getDate();
-}
-
 /* 復習 */
 async function startReview(mode){
- save();
  loading(true);
-
  let res=await fetch(URL);
  let all=await res.json();
 
  let yesterday=new Date();
  yesterday.setDate(yesterday.getDate()-1);
 
- if(mode==="normal"){
-  state.reviewData = all.filter(item=>{
-   let d=new Date(item.date);
-   return isSameDay(d,yesterday);
-  });
+ if(mode==="all"){
+  state.reviewData=all;
  }else{
-  state.reviewData = all;
+  state.reviewData=all.filter(x=>{
+   let d=new Date(x.date);
+   return d.toDateString()===yesterday.toDateString();
+  });
  }
 
  state.reviewIndex=0;
@@ -361,15 +344,11 @@ function review(){
  let list=state.modeQA==="q"?d.questions:d.answers;
 
  document.getElementById("app").innerHTML=`
-  <h3>${state.reviewIndex+1}/${state.reviewData.length}</h3>
-  <h4>${state.modeQA==="q"?"問題":"答え"} ${state.reviewSubIndex+1}/${list.length}</h4>
-
   <div class="wrap">
     <button class="arrow left" onclick="prevImg()">←</button>
     <img src="${list[state.reviewSubIndex]}">
     <button class="arrow right" onclick="nextImg()">→</button>
   </div>
-
   <button class="green" onclick="toggleQA()">切替</button>
  `;
 }
