@@ -24,18 +24,21 @@ button{
 .blue{background:#3498db;}
 .green{background:#2ecc71;}
 .orange{background:#f39c12;}
+.red{background:#e74c3c;}
 .purple{background:#9b59b6;}
+.black{background:#333;}
 
 video{
  width:90%;
- height:60vh;
+ height:55vh;
  object-fit:cover;
+ background:black;
  border-radius:10px;
 }
 
 canvas{
  width:90%;
- max-height:60vh;
+ max-height:55vh;
  border:1px solid black;
  border-radius:10px;
 }
@@ -73,12 +76,13 @@ canvas{
 <script>
 const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqiATr_Fti0z_Z7vGykZADJKsa3GLlPnbBPQeB-C0NA/exec";
 
+/* ===== 状態 ===== */
 let qImgs=[],aImgs=[],tempImgs=[];
 let isAnswer=false;
 
 let video,canvas,ctx;
 
-/* フラッシュ */
+/* ===== フラッシュ ===== */
 function flash(text){
  let f=document.getElementById("flash");
  f.innerText=text;
@@ -86,13 +90,22 @@ function flash(text){
  setTimeout(()=>f.style.display="none",500);
 }
 
-/* ===== 登録画面 ===== */
+/* ===== ホーム ===== */
+function goHome(){
+ document.getElementById("app").innerHTML=`
+  <h2>ホーム</h2>
+  <button class="blue" onclick="goRegister()">問題登録</button>
+  <button class="green" onclick="goReview()">問題復習</button>
+ `;
+}
+
+/* ===== 登録 ===== */
 function goRegister(){
 
  document.getElementById("app").innerHTML=`
   <h2>${isAnswer?"答え撮影":"問題撮影"}</h2>
 
-  <video id="video" autoplay playsinline></video>
+  <video id="video" autoplay playsinline muted></video>
   <button class="captureBtn" onclick="capture()"></button>
 
   <canvas id="canvas"></canvas>
@@ -100,7 +113,9 @@ function goRegister(){
   <button class="blue" onclick="add()">追加</button>
   <button class="green" onclick="startEdit()">編集</button>
 
-  <div id="count">問題:${qImgs.length + (isAnswer?0:tempImgs.length)} 答え:${aImgs.length + (isAnswer?tempImgs.length:0)}</div>
+  <div id="count">問題:${qImgs.length + (!isAnswer?tempImgs.length:0)} 答え:${aImgs.length + (isAnswer?tempImgs.length:0)}</div>
+
+  <button class="black" onclick="goHome()">戻る</button>
  `;
 
  video=document.getElementById("video");
@@ -112,8 +127,12 @@ function goRegister(){
 
 /* カメラ */
 async function startCamera(){
- const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
- video.srcObject=s;
+ try{
+  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  video.srcObject=s;
+ }catch(e){
+  alert("カメラ許可して");
+ }
 }
 
 function capture(){
@@ -122,24 +141,24 @@ function capture(){
  ctx.drawImage(video,0,0);
 }
 
-/* 🔥 ここ重要：追加 */
+/* 追加 */
 function add(){
+ if(canvas.width===0)return alert("先に撮影");
+
  const img=canvas.toDataURL();
  tempImgs.push(img);
 
- updateCount(); // ←画面だけ更新
+ updateCount();
  flash("追加完了");
 }
 
-/* 🔥 カウント更新 */
 function updateCount(){
  document.getElementById("count").innerText=
-  `問題:${qImgs.length + (isAnswer?0:tempImgs.length)} 答え:${aImgs.length + (isAnswer?tempImgs.length:0)}`;
+  `問題:${qImgs.length + (!isAnswer?tempImgs.length:0)} 答え:${aImgs.length + (isAnswer?tempImgs.length:0)}`;
 }
 
 /* ===== 編集 ===== */
 let editIndex=0;
-let drawing=false;
 
 function startEdit(){
  if(tempImgs.length===0)return alert("画像なし");
@@ -160,10 +179,6 @@ function startEdit(){
 
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
-
- canvas.addEventListener("touchstart",e=>{drawing=true;draw(e);});
- canvas.addEventListener("touchmove",draw);
- canvas.addEventListener("touchend",()=>drawing=false);
 
  show();
 }
@@ -199,7 +214,7 @@ function finishEdit(){
  goRegister();
 }
 
-/* 送信 */
+/* ===== 送信 ===== */
 async function send(){
  await fetch(URL,{
   method:"POST",
@@ -213,11 +228,16 @@ async function send(){
  isAnswer=false;
 
  alert("保存完了");
- goRegister();
+ goHome();
+}
+
+/* ===== 復習（仮） ===== */
+function goReview(){
+ alert("復習は後で統合する");
 }
 
 /* 初期 */
-goRegister();
+goHome();
 </script>
 
 </body>
