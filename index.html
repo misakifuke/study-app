@@ -11,7 +11,6 @@ body{
  background:#f5f5f5;
 }
 
-/* ボタン */
 button{
  width:85%;
  height:65px;
@@ -39,7 +38,6 @@ button{
  color:white;
 }
 
-/* カメラ */
 video{
  width:90%;
  height:55vh;
@@ -54,7 +52,6 @@ canvas{
  border-radius:10px;
 }
 
-/* 編集 */
 .imgWrap{
  position:relative;
  display:inline-block;
@@ -90,8 +87,7 @@ img{
  border:5px solid #ccc;
 }
 
-/* ローディング */
-#loading{
+#flash{
  position:fixed;
  top:50%;
  left:50%;
@@ -102,11 +98,24 @@ img{
  border-radius:10px;
  display:none;
 }
+
+#loading{
+ position:fixed;
+ top:50%;
+ left:50%;
+ transform:translate(-50%,-50%);
+ background:rgba(0,0,0,0.8);
+ color:white;
+ padding:20px;
+ border-radius:10px;
+ display:none;
+}
 </style>
 </head>
 
 <body>
 
+<div id="flash"></div>
 <div id="loading">しばらくお待ちください...</div>
 <button id="back" onclick="goBack()" style="display:none">←</button>
 <div id="app"></div>
@@ -114,38 +123,48 @@ img{
 <script>
 const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqiATr_Fti0z_Z7vGykZADJKsa3GLlPnbBPQeB-C0NA/exec";
 
-/* 状態 */
+/* ===== 状態 ===== */
 let historyStack=[];
-let currentScreen="";
+let current="home";
+
 let qImgs=[],aImgs=[],tempImgs=[];
 let isAnswer=false;
+
 let video,canvas,ctx;
 let editIndex=0;
+let drawing=false;
 
-/* ===== 共通 ===== */
-function showLoading(on){
+/* ===== UI ===== */
+function flash(text){
+ let f=document.getElementById("flash");
+ f.innerText=text;
+ f.style.display="block";
+ setTimeout(()=>f.style.display="none",500);
+}
+
+function loading(on){
  document.getElementById("loading").style.display=on?"block":"none";
 }
 
 function setScreen(name, html){
- if(currentScreen) historyStack.push(currentScreen);
- currentScreen=name;
-
+ if(current) historyStack.push(current);
+ current=name;
  document.getElementById("app").innerHTML=html;
  document.getElementById("back").style.display=historyStack.length?"block":"none";
 }
 
 function goBack(){
- if(historyStack.length===0)return;
- currentScreen=historyStack.pop();
+ if(!historyStack.length)return;
+ const prev=historyStack.pop();
+ current=prev;
 
- if(currentScreen==="home") goHome(false);
- if(currentScreen==="register") goRegister(false);
- if(currentScreen==="edit") startEdit(false);
+ if(prev==="home") renderHome(false);
+ if(prev==="register") renderRegister(false);
+ if(prev==="edit") renderEdit(false);
 }
 
 /* ===== ホーム ===== */
-function goHome(push=true){
+function renderHome(push=true){
  if(push) setScreen("home","");
  else document.getElementById("app").innerHTML="";
 
@@ -153,7 +172,7 @@ function goHome(push=true){
 
  document.getElementById("app").innerHTML=`
   <h2>ホーム</h2>
-  <button class="blue" onclick="goRegister()">問題登録</button>
+  <button class="blue" onclick="renderRegister()">問題登録</button>
   <button class="green">問題復習</button>
   <button class="orange">α</button>
   <button class="red">＋</button>
@@ -163,7 +182,7 @@ function goHome(push=true){
 }
 
 /* ===== 登録 ===== */
-function goRegister(push=true){
+function renderRegister(push=true){
  if(push) setScreen("register","");
 
  document.getElementById("app").innerHTML=`
@@ -178,16 +197,17 @@ function goRegister(push=true){
 
   ${isAnswer
     ? `<button class="red" onclick="send()">まとめて送信</button>`
-    : `<button class="green" onclick="startEdit()">編集</button>`
+    : `<button class="green" onclick="renderEdit()">編集</button>`
   }
 
-  <div>問題:${qImgs.length} 答え:${aImgs.length}</div>
+  <div id="count"></div>
  `;
 
  video=document.getElementById("video");
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
 
+ updateCount();
  startCamera();
 }
 
@@ -203,14 +223,24 @@ function capture(){
  ctx.drawImage(video,0,0);
 }
 
-/* 追加 */
+/* 追加（完全修正） */
 function add(){
  if(canvas.width===0)return alert("先に撮影");
+
  tempImgs.push(canvas.toDataURL());
+
+ updateCount();
+ flash("追加完了");
+}
+
+/* カウント（完全修正） */
+function updateCount(){
+ document.getElementById("count").innerText=
+  `問題:${qImgs.length + (!isAnswer?tempImgs.length:0)} / 答え:${aImgs.length + (isAnswer?tempImgs.length:0)}`;
 }
 
 /* ===== 編集 ===== */
-function startEdit(push=true){
+function renderEdit(push=true){
  if(tempImgs.length===0)return alert("画像なし");
 
  if(push) setScreen("edit","");
@@ -218,7 +248,7 @@ function startEdit(push=true){
  editIndex=0;
 
  document.getElementById("app").innerHTML=`
-  <h2>編集</h2>
+  <h2>問題編集</h2>
 
   <div class="imgWrap">
     <button class="arrow left" onclick="prev()">←</button>
@@ -234,6 +264,10 @@ function startEdit(push=true){
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
 
+ canvas.addEventListener("touchstart",e=>{drawing=true;draw(e);});
+ canvas.addEventListener("touchmove",draw);
+ canvas.addEventListener("touchend",()=>drawing=false);
+
  show();
 }
 
@@ -247,6 +281,15 @@ function show(){
  };
 }
 
+function draw(e){
+ if(!drawing)return;
+ e.preventDefault();
+ const rect=canvas.getBoundingClientRect();
+ const x=(e.touches[0].clientX-rect.left)*(canvas.width/rect.width);
+ const y=(e.touches[0].clientY-rect.top)*(canvas.height/rect.height);
+ ctx.fillRect(x,y,4,4);
+}
+
 function next(){save();if(editIndex<tempImgs.length-1)editIndex++;show();}
 function prev(){save();if(editIndex>0)editIndex--;show();}
 function save(){tempImgs[editIndex]=canvas.toDataURL();}
@@ -256,7 +299,7 @@ function finishEdit(){
  qImgs=qImgs.concat(tempImgs);
  tempImgs=[];
  isAnswer=true;
- goRegister();
+ renderRegister();
 }
 
 /* ===== 送信 ===== */
@@ -264,7 +307,7 @@ async function send(){
  aImgs=aImgs.concat(tempImgs);
  tempImgs=[];
 
- showLoading(true);
+ loading(true);
 
  await fetch(URL,{
   method:"POST",
@@ -274,17 +317,17 @@ async function send(){
   })
  });
 
- showLoading(false);
+ loading(false);
 
  qImgs=[];aImgs=[];
  isAnswer=false;
 
  alert("保存完了");
- goHome();
+ renderHome();
 }
 
 /* 初期 */
-goHome();
+renderHome();
 </script>
 
 </body>
