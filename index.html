@@ -36,7 +36,6 @@ video,img,canvas{
  background:#000;
 }
 
-/* シャッター修正 */
 .captureBtn{
  position:fixed;bottom:20px;left:50%;
  transform:translateX(-50%);
@@ -84,11 +83,15 @@ video,img,canvas{
 <div id="app"></div>
 
 <script>
+
+/* 🔥 ここが今回の本質（完全リセット） */
+localStorage.removeItem("cache");
+
 const app=document.getElementById("app");
 const back=document.getElementById("back");
 const loading=document.getElementById("loading");
 
-const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqiATr_Fti0z_Z7vGykZADJKsa3GLlPnbBPQeB-C0NA/exec";
+const URL="https://script.google.com/macros/s/AKfycbwu_1cwnO70UrkiDEAKtZdZy2Dw4Lr6RsA7ksS42DIJheu-wnVjC-ZBGcUxUJ5fRMyB/exec";
 
 let history=[];
 let video,canvas,ctx;
@@ -310,28 +313,14 @@ function startContinue(){
 async function fetchData(){
  if(cachedData) return cachedData;
 
- let saved=localStorage.getItem("cache");
- if(saved){
-  cachedData=JSON.parse(saved);
-  return cachedData;
- }
-
  let res=await fetch(URL);
  let data=await res.json();
 
- data=data.map(x=>({
-  date:x.date,
-  questions:x.questions,
-  answers:x.answers
- }));
-
  cachedData=data;
- localStorage.setItem("cache",JSON.stringify(data));
-
  return data;
 }
 
-/* 復習（完全安定版） */
+/* 復習 */
 async function startReview(mode,isContinue=false){
  save();
  state.reviewMode=mode;
@@ -341,58 +330,12 @@ async function startReview(mode,isContinue=false){
  try{
   let data=await fetchData();
 
-  let now=new Date();
-  let get=n=>{
-   let d=new Date();
-   d.setDate(now.getDate()-n);
-   return d;
-  };
-
-  function safeDate(d){
-   if(!d) return null;
-   let dt=new Date(d);
-   if(isNaN(dt.getTime())) return null;
-   return dt;
-  }
-
-  function same(a,b){
-   if(!a) return false;
-   return a.getFullYear()===b.getFullYear() &&
-          a.getMonth()===b.getMonth() &&
-          a.getDate()===b.getDate();
-  }
-
-  if(mode==="normal"){
-   state.reviewData=data.filter(x=>{
-    let d=safeDate(x.date);
-    return d && same(d,get(1));
-   });
-  }
-  else if(mode==="alpha"){
-   state.reviewData=data.filter(x=>{
-    let d=safeDate(x.date);
-    return d && [3,7,14].some(n=>same(d,get(n)));
-   });
-  }
-  else if(mode==="plus"){
-   state.reviewData=data.filter(x=>{
-    let d=safeDate(x.date);
-    return d && [1,3,7,14].some(n=>same(d,get(n)));
-   });
-  }
-  else{
-   state.reviewData=data.filter(x=>safeDate(x.date));
-  }
+  state.reviewData=data || [];
 
   if(!isContinue){
    state.reviewIndex=0;
    state.reviewSub=0;
    state.mode="q";
-  }
-
-  if(state.reviewIndex>=state.reviewData.length){
-   state.reviewIndex=0;
-   state.reviewSub=0;
   }
 
   state.screen="review";
@@ -411,20 +354,13 @@ function review(){
  if(!d)return app.innerHTML="データなし";
 
  let list=state.mode==="q"?d.questions:d.answers;
+ if(!list || !list.length) return app.innerHTML="データなし";
+
  if(state.reviewSub>=list.length) state.reviewSub=0;
 
- let totalSet=state.reviewData.length;
- let currentSet=state.reviewIndex+1;
- let totalPage=list.length;
- let currentPage=state.reviewSub+1;
-
- let saveBtn = (state.reviewMode==="all")
-  ? '<button class="dark" onclick="saveProg()">保存</button>'
-  : '';
-
  app.innerHTML=`
- <div style="margin-top:10px;font-size:14px;">
- セット ${currentSet}/${totalSet}（${currentPage}/${totalPage}）
+ <div style="margin-top:10px;">
+ ${state.reviewIndex+1}/${state.reviewData.length}（${state.reviewSub+1}/${list.length}）
  </div>
 
  <div class="wrap" id="swipeArea">
@@ -432,7 +368,6 @@ function review(){
  </div>
 
  <button class="green" onclick="toggle()">切替</button>
- ${saveBtn}
  `;
 
  let area=document.getElementById("swipeArea");
@@ -451,14 +386,9 @@ function handleSwipe(){
  let diff=endX-startX;
  if(Math.abs(diff)<50) return;
 
- let img=document.getElementById("slideImg");
- if(!img) return;
-
  if(diff<0){
-  img.style.transform="translateX(-100%)";
   setTimeout(()=>{nextR();},120);
  }else{
-  img.style.transform="translateX(100%)";
   setTimeout(()=>{prevR();},120);
  }
 }
