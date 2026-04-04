@@ -7,70 +7,77 @@
 <style>
 body {
  font-family:sans-serif;
- text-align:center;
  margin:0;
+ text-align:center;
+ background:#f5f5f5;
 }
 
-h2 {
- margin-top:60px;
-}
+h2 { margin-top:60px; }
 
-/* 🔥 ボタン強化 */
+/* 🔥 ボタン共通 */
 button {
- width:80%;
- height:80px;
+ width:85%;
+ height:75px;
  font-size:18px;
  margin:10px;
- border-radius:12px;
+ border:none;
+ border-radius:14px;
+ color:white;
 }
 
-/* 小さいボタン（復習用） */
-.small-btn {
- width:60px;
- height:60px;
- font-size:20px;
+/* 🎨 色分け */
+.blue { background:#3498db; }
+.green { background:#2ecc71; }
+.orange { background:#f39c12; }
+.red { background:#e74c3c; }
+.purple { background:#9b59b6; }
+.black { background:#333; }
+
+/* 🔙 戻る */
+#back {
+ position:fixed;
+ top:10px;
+ left:10px;
+ width:55px;
+ height:55px;
+ z-index:10;
+ background:#444;
 }
 
-/* 🔥 ローディング */
+/* 🔄 ローディング */
 #loading {
  position:fixed;
  top:0; left:0;
  width:100%; height:100%;
  background:rgba(0,0,0,0.6);
- color:#fff;
+ color:white;
  display:none;
  align-items:center;
  justify-content:center;
 }
 
-/* 🔥 戻るボタン */
-#back {
- position:fixed;
- top:10px;
- left:10px;
- width:60px;
- height:60px;
- z-index:10;
-}
-
-/* 🔥 画像 */
+/* 📷 画像 */
 video, canvas, img {
  width:100%;
- max-width:400px;
+ max-width:420px;
 }
 
-/* 🔥 復習UI */
-.review-container {
+/* 🔥 復習 */
+.review-box {
  position:relative;
- display:flex;
- justify-content:center;
- align-items:center;
+ display:inline-block;
 }
 
 .arrow {
  position:absolute;
  top:50%;
  transform:translateY(-50%);
+ width:50px;
+ height:50px;
+ border-radius:50%;
+ background:rgba(0,0,0,0.5);
+ color:white;
+ font-size:20px;
 }
 
 .left { left:5px; }
@@ -104,20 +111,21 @@ function setView(html){
  document.getElementById("back").style.display=(state==="home")?"none":"block";
 }
 
-// ===== ホーム =====
+/* ===== ホーム ===== */
 function goHome(){
  state="home";
  setView(`
   <h2>📚 ホーム</h2>
-  <button onclick="goRegister()">問題登録</button>
-  <button onclick="goReview('normal')">問題復習</button>
-  <button onclick="goReview('alpha')">問題復習α</button>
-  <button onclick="goReview('plus')">問題復習＋</button>
-  <button onclick="goReview('all')">総復習</button>
+  <button class="blue" onclick="goRegister()">問題登録</button>
+  <button class="green" onclick="goReview('normal')">問題復習</button>
+  <button class="orange" onclick="goReview('alpha')">問題復習α</button>
+  <button class="red" onclick="goReview('plus')">問題復習＋</button>
+  <button class="purple" onclick="startFullReview()">総復習</button>
+  <button class="black" onclick="continueFullReview()">続きから総復習</button>
  `);
 }
 
-// ===== 登録 =====
+/* ===== 登録 ===== */
 let video,canvas,ctx;
 let qImgs=[],aImgs=[];
 let mode="question";
@@ -128,17 +136,17 @@ function goRegister(){
 
  setView(`
   <h2>問題登録</h2>
-  <button onclick="mode='question'">問題</button>
-  <button onclick="mode='answer'">答え</button>
+  <button class="blue" onclick="mode='question'">問題</button>
+  <button class="green" onclick="mode='answer'">答え</button>
 
   <video id="video" autoplay playsinline></video>
-  <button onclick="startCamera()">カメラ</button>
-  <button onclick="capture()">撮影</button>
+  <button class="purple" onclick="startCamera()">カメラ</button>
+  <button class="orange" onclick="capture()">撮影</button>
 
   <canvas id="canvas"></canvas>
 
-  <button onclick="add()">追加</button>
-  <button onclick="send()">送信</button>
+  <button class="blue" onclick="add()">追加</button>
+  <button class="green" onclick="send()">送信</button>
 
   <div>問題:<span id="q">0</span> 答え:<span id="a">0</span></div>
  `);
@@ -202,7 +210,7 @@ async function send(){
  alert("保存完了");
 }
 
-// ===== 日付処理 =====
+/* ===== 日付 ===== */
 function getDateOnly(date){
  let d=new Date(date);
  return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
@@ -214,10 +222,21 @@ function getTargetDate(days){
  return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
 }
 
-// ===== 復習 =====
+/* ===== 復習 ===== */
 let data=[],set=0,page=0,mode2="q";
 
-function goReview(type){
+function startFullReview(){
+ localStorage.setItem("reviewIndex",0);
+ goReview("all");
+}
+
+function continueFullReview(){
+ let saved = localStorage.getItem("reviewIndex");
+ set = saved ? parseInt(saved) : 0;
+ goReview("all", true);
+}
+
+function goReview(type, keepIndex=false){
  state="review";
  loading(true);
 
@@ -229,12 +248,13 @@ function goReview(type){
 
   data = d.filter(x=>{
     if(type==="normal"||type==="all") return true;
-
     let date=getDateOnly(x.date);
     return targets.some(day=>date===getTargetDate(day));
   });
 
-  set=0;page=0;mode2="q";
+  if(!keepIndex){ set=0; }
+  page=0; mode2="q";
+
   loading(false);
   drawReview();
  });
@@ -246,20 +266,22 @@ function drawReview(){
   return;
  }
 
+ localStorage.setItem("reviewIndex",set);
+
  let s=data[set];
  let imgs=mode2==="q"?s.questions:s.answers;
 
  setView(`
   <h2>復習</h2>
 
-  <div class="review-container">
-    <button class="small-btn arrow left" onclick="prev()">←</button>
+  <div class="review-box">
+    <button class="arrow left" onclick="prev()">←</button>
     <img src="${imgs[page]}">
-    <button class="small-btn arrow right" onclick="next()">→</button>
+    <button class="arrow right" onclick="next()">→</button>
   </div>
 
-  <button onclick="switchQA()">問題⇄答え</button>
-  <button onclick="nextSet()">次のセット</button>
+  <button class="green" onclick="switchQA()">問題⇄答え</button>
+  <button class="purple" onclick="nextSet()">次のセット</button>
  `);
 }
 
@@ -273,7 +295,7 @@ function imgLen(){
  return mode2==="q"?s.questions.length:s.answers.length;
 }
 
-// 初期
+/* 初期 */
 goHome();
 </script>
 
