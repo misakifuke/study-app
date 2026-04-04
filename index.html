@@ -23,15 +23,15 @@ button{
 .dark{background:#222;}
 
 #back{
- position:fixed;
- top:10px;left:10px;
+ position:fixed;top:10px;left:10px;
  width:55px;height:55px;
  background:#222;color:white;
 }
 
-video,canvas,img{
+video,img,canvas{
  width:92%;
- max-height:60vh;
+ height:55vh;
+ object-fit:cover;
  border-radius:12px;
 }
 
@@ -54,8 +54,8 @@ video,canvas,img{
  border-radius:50%;
  background:#222;color:white;
 }
-.left{left:-50px;}
-.right{right:-50px;}
+.left{left:-45px;}
+.right{right:-45px;}
 
 #flash,#loading{
  position:fixed;
@@ -83,6 +83,7 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 
 let history=[];
 let currentMode="normal";
+let captured=null;
 
 let state={
  screen:"home",
@@ -117,7 +118,7 @@ function goBack(){
  if(!history.length) document.getElementById("back").style.display="none";
 }
 
-/* ===== ルーター ===== */
+/* ===== 画面 ===== */
 function render(){
  if(state.screen==="home") home();
  if(state.screen==="register") register();
@@ -145,23 +146,19 @@ function goRegister(){save();state.screen="register";render();}
 function register(){
  document.getElementById("app").innerHTML=`
   <h2>${state.isAnswer?"答え撮影":"問題撮影"}</h2>
+
   <video id="video" autoplay playsinline muted></video>
+  <img id="preview" style="display:none">
+
   <button class="captureBtn" onclick="capture()"></button>
-  <canvas id="canvas"></canvas>
-  <button class="blue" onclick="add()">追加</button>
-  ${state.isAnswer
-    ? `<button class="red" onclick="send()">送信</button>`
-    : `<button class="green" onclick="goEdit()">編集</button>`
-  }
+
+  <div id="controls"></div>
   <div id="count"></div>
  `;
 
  video=document.getElementById("video");
- canvas=document.getElementById("canvas");
- ctx=canvas.getContext("2d");
-
- updateCount();
  startCamera();
+ updateCount();
 }
 
 async function startCamera(){
@@ -170,21 +167,49 @@ async function startCamera(){
 }
 
 function capture(){
- canvas.width=video.videoWidth;
- canvas.height=video.videoHeight;
- ctx.drawImage(video,0,0);
+ let c=document.createElement("canvas");
+ c.width=video.videoWidth;
+ c.height=video.videoHeight;
+ c.getContext("2d").drawImage(video,0,0);
+
+ captured=c.toDataURL();
+
+ video.style.display="none";
+ let img=document.getElementById("preview");
+ img.src=captured;
+ img.style.display="block";
+
+ document.getElementById("controls").innerHTML=`
+  <button class="blue" onclick="addOne()">追加</button>
+  <button class="orange" onclick="retake()">撮り直し</button>
+  ${!state.isAnswer ? `<button class="green" onclick="goEdit()">編集へ</button>` : ""}
+  ${state.isAnswer ? `<button class="red" onclick="send()">送信</button>` : ""}
+ `;
 }
 
-function add(){
- if(canvas.width===0)return alert("先に撮影");
- state.tempImgs.push(canvas.toDataURL());
- updateCount();
+function addOne(){
+ state.tempImgs.push(captured);
  flash("追加完了");
+
+ captured=null;
+ document.getElementById("preview").style.display="none";
+ video.style.display="block";
+ document.getElementById("controls").innerHTML="";
+
+ updateCount();
+}
+
+function retake(){
+ captured=null;
+ document.getElementById("preview").style.display="none";
+ video.style.display="block";
+ document.getElementById("controls").innerHTML="";
 }
 
 function updateCount(){
- document.getElementById("count").innerText=
-  `問題:${state.qImgs.length + (!state.isAnswer?state.tempImgs.length:0)} / 答え:${state.aImgs.length + (state.isAnswer?state.tempImgs.length:0)}`;
+ let q=state.qImgs.length + (!state.isAnswer?state.tempImgs.length:0);
+ let a=state.aImgs.length + (state.isAnswer?state.tempImgs.length:0);
+ document.getElementById("count").innerText=`問題:${q} / 答え:${a}`;
 }
 
 /* ===== 編集 ===== */
@@ -203,30 +228,27 @@ function edit(){
   <h2>編集</h2>
   <div class="wrap">
     <button class="arrow left" onclick="prev()">←</button>
-    <img id="img">
+    <canvas id="canvas"></canvas>
     <button class="arrow right" onclick="next()">→</button>
   </div>
-  <canvas id="canvas"></canvas>
   <button class="green" onclick="finishEdit()">完了</button>
  `;
 
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
 
- canvas.addEventListener("touchstart",startDraw,{passive:false});
- canvas.addEventListener("touchmove",moveDraw,{passive:false});
+ canvas.addEventListener("touchstart",e=>{drawing=true;draw(e)},{passive:false});
+ canvas.addEventListener("touchmove",e=>{if(drawing)draw(e)},{passive:false});
  canvas.addEventListener("touchend",()=>drawing=false);
 
  show();
 }
 
-function startDraw(e){drawing=true;draw(e);}
-function moveDraw(e){if(drawing)draw(e);}
 function draw(e){
  e.preventDefault();
- const rect=canvas.getBoundingClientRect();
- const x=(e.touches[0].clientX-rect.left)*(canvas.width/rect.width);
- const y=(e.touches[0].clientY-rect.top)*(canvas.height/rect.height);
+ let r=canvas.getBoundingClientRect();
+ let x=(e.touches[0].clientX-r.left)*(canvas.width/r.width);
+ let y=(e.touches[0].clientY-r.top)*(canvas.height/r.height);
  ctx.fillStyle="red";
  ctx.fillRect(x,y,5,5);
 }
@@ -285,8 +307,7 @@ async function startReview(mode){
  let all=await res.json();
 
  function diff(d){
-  let t=new Date();
-  let a=new Date(d);
+  let t=new Date(),a=new Date(d);
   t.setHours(0,0,0,0);
   a.setHours(0,0,0,0);
   return Math.floor((t-a)/86400000);
@@ -302,9 +323,9 @@ async function startReview(mode){
  });
 
  if(mode==="continue"){
-  let saved=JSON.parse(localStorage.getItem("save_all")||"{}");
+  let s=JSON.parse(localStorage.getItem("save_all")||"{}");
   list=all;
-  state.reviewIndex=saved.index||0;
+  state.reviewIndex=s.index||0;
  }
 
  state.reviewData=list;
@@ -322,12 +343,11 @@ function saveProgress(){
  }));
 }
 
-/* ===== 表示 ===== */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return document.getElementById("app").innerHTML="データなし";
 
- let list = state.modeQA==="q" ? d.questions : d.answers;
+ let list=state.modeQA==="q"?d.questions:d.answers;
 
  document.getElementById("app").innerHTML=`
   <h3>${state.reviewIndex+1}/${state.reviewData.length}</h3>
@@ -347,16 +367,16 @@ function review(){
 
 function nextImg(){
  let d=state.reviewData[state.reviewIndex];
- let list = state.modeQA==="q"?d.questions:d.answers;
+ let list=state.modeQA==="q"?d.questions:d.answers;
 
- if(state.reviewSubIndex < list.length-1){
+ if(state.reviewSubIndex<list.length-1){
   state.reviewSubIndex++;
  }else{
-  if(state.reviewIndex < state.reviewData.length-1){
-    state.reviewIndex++;
-    state.reviewSubIndex=0;
-    state.modeQA="q";
-    saveProgress(); // 🔥ここ重要
+  if(state.reviewIndex<state.reviewData.length-1){
+   state.reviewIndex++;
+   state.reviewSubIndex=0;
+   state.modeQA="q";
+   saveProgress();
   }
  }
  render();
@@ -365,18 +385,16 @@ function nextImg(){
 function prevImg(){
  if(state.reviewSubIndex>0){
   state.reviewSubIndex--;
- }else{
-  if(state.reviewIndex>0){
-    state.reviewIndex--;
-    state.reviewSubIndex=0;
-    state.modeQA="q";
-  }
+ }else if(state.reviewIndex>0){
+  state.reviewIndex--;
+  state.reviewSubIndex=0;
+  state.modeQA="q";
  }
  render();
 }
 
 function toggleQA(){
- state.modeQA = state.modeQA==="q" ? "a" : "q";
+ state.modeQA=state.modeQA==="q"?"a":"q";
  state.reviewSubIndex=0;
  render();
 }
