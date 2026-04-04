@@ -28,16 +28,17 @@ button{
  background:#222;color:white;
 }
 
-/* カメラ */
+/* 🔥 カメラ横固定（CSS） */
 video{
  width:92%;
- height:auto;
+ aspect-ratio:16/9;
+ object-fit:cover;
  border-radius:12px;
  display:block;
  margin:10px auto;
 }
 
-/* 🔥 画像そのまま表示（絶対引き伸ばさない） */
+/* 画像（そのまま） */
 img{
  width:92%;
  height:auto;
@@ -181,12 +182,19 @@ function register(){
  startCamera();
 }
 
+/* 🔥 横長取得（ガチ修正） */
 async function startCamera(){
- const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+ const s=await navigator.mediaDevices.getUserMedia({
+  video:{
+   facingMode:{exact:"environment"},
+   width:{ideal:1920},
+   height:{ideal:1080}
+  }
+ });
  video.srcObject=s;
 }
 
-/* 🔥 そのまま保存 */
+/* そのまま保存 */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
