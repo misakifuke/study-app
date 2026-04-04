@@ -25,11 +25,8 @@ img{width:90%;max-height:60vh;}
 }
 
 .arrow{
- position:absolute;
- top:50%;
- transform:translateY(-50%);
- width:50px;height:50px;
- border-radius:50%;
+ position:absolute;top:50%;transform:translateY(-50%);
+ width:50px;height:50px;border-radius:50%;
  background:#222;color:white;
 }
 .left{left:-60px;}
@@ -62,15 +59,13 @@ let history=[];
 let state={
  screen:"home",
 
- qImgs:[],
- aImgs:[],
- tempImgs:[],
- isAnswer:false,
- editIndex:0,
+ qImgs:[], aImgs:[], tempImgs:[],
+ isAnswer:false, editIndex:0,
 
  reviewData:[],
  reviewIndex:0,
- showAnswer:false
+ reviewSubIndex:0,
+ modeQA:"q"
 };
 
 let video,canvas,ctx;
@@ -119,11 +114,7 @@ function home(){
 }
 
 /* ===== 登録 ===== */
-function goRegister(){
- save();
- state.screen="register";
- render();
-}
+function goRegister(){save();state.screen="register";render();}
 
 function register(){
  document.getElementById("app").innerHTML=`
@@ -263,7 +254,7 @@ async function send(){
 
  loading(false);
 
- state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,showAnswer:false};
+ state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,reviewSubIndex:0,modeQA:"q"};
  history=[];
  render();
 }
@@ -297,7 +288,8 @@ async function startReview(mode){
 
  state.reviewData=list;
  state.reviewIndex=0;
- state.showAnswer=false;
+ state.reviewSubIndex=0;
+ state.modeQA="q";
  state.screen="review";
 
  loading(false);
@@ -308,38 +300,59 @@ function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return document.getElementById("app").innerHTML="データなし";
 
+ let list = state.modeQA==="q" ? d.questions : d.answers;
+
  document.getElementById("app").innerHTML=`
   <h3>${state.reviewIndex+1}/${state.reviewData.length}</h3>
+  <h4>${state.modeQA==="q"?"問題":"答え"} ${state.reviewSubIndex+1}/${list.length}</h4>
 
-  <button class="arrow left" onclick="prevR()">←</button>
-  <img src="${state.showAnswer?d.answers[0]:d.questions[0]}">
-  <button class="arrow right" onclick="nextR()">→</button>
+  <div class="wrap">
+    <button class="arrow left" onclick="prevImg()">←</button>
+    <img src="${list[state.reviewSubIndex]}">
+    <button class="arrow right" onclick="nextImg()">→</button>
+  </div>
 
   <br>
 
-  <button class="green" onclick="toggle()">
-    ${state.showAnswer?"問題":"答え"}
+  <button class="green" onclick="toggleQA()">
+    ${state.modeQA==="q"?"答えへ":"問題へ"}
   </button>
  `;
 }
 
-function nextR(){
- if(state.reviewIndex<state.reviewData.length-1){
-  state.reviewIndex++;
-  state.showAnswer=false;
-  localStorage.setItem("last",state.reviewIndex);
-  render();
+function nextImg(){
+ let d=state.reviewData[state.reviewIndex];
+ let list = state.modeQA==="q"?d.questions:d.answers;
+
+ if(state.reviewSubIndex < list.length-1){
+  state.reviewSubIndex++;
+ }else{
+  if(state.reviewIndex < state.reviewData.length-1){
+    state.reviewIndex++;
+    state.reviewSubIndex=0;
+    state.modeQA="q";
+    localStorage.setItem("last",state.reviewIndex);
+  }
  }
+ render();
 }
-function prevR(){
- if(state.reviewIndex>0){
-  state.reviewIndex--;
-  state.showAnswer=false;
-  render();
+
+function prevImg(){
+ if(state.reviewSubIndex>0){
+  state.reviewSubIndex--;
+ }else{
+  if(state.reviewIndex>0){
+    state.reviewIndex--;
+    state.reviewSubIndex=0;
+    state.modeQA="q";
+  }
  }
+ render();
 }
-function toggle(){
- state.showAnswer=!state.showAnswer;
+
+function toggleQA(){
+ state.modeQA = state.modeQA==="q" ? "a" : "q";
+ state.reviewSubIndex=0;
  render();
 }
 
