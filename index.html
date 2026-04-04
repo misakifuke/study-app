@@ -26,14 +26,16 @@ button{
  z-index:1000;
 }
 
+/* ゴミ箱（ホームのみ） */
 #trashBtn{
  position:fixed;
- bottom:20px;right:20px;
+ bottom:90px;
+ right:20px;
  width:70px;height:70px;
  border-radius:50%;
  background:#444;color:#fff;
  font-size:28px;
- z-index:1000;
+ z-index:2000;
 }
 
 video,img,canvas{
@@ -76,7 +78,7 @@ video,img,canvas{
  height:60px;background:#222;color:#fff;
  display:none;align-items:center;
  justify-content:space-between;padding:0 10px;
- z-index:1000;
+ z-index:1500;
 }
 
 #loading{
@@ -84,7 +86,7 @@ video,img,canvas{
  background:rgba(0,0,0,0.6);
  color:#fff;display:none;
  align-items:center;justify-content:center;
- font-size:20px;z-index:999;
+ font-size:20px;z-index:3000;
 }
 </style>
 </head>
@@ -114,9 +116,8 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 let history=[];
 let cachedData=null;
 let video,canvas,ctx;
-
-/* スワイプ */
 let startX=0,endX=0;
+let loadTimer=null;
 
 let state={
  screen:"home",
@@ -129,13 +130,27 @@ let state={
  reviewSub:0,
  mode:"q",
  trashData:[],
- selected:[]
+ selected:[],
+ allData:[],
+ viewData:[],
+ page:0,
+ pageSize:30
 };
 
+/* ========= ローディング ========= */
 function showLoading(){loading.style.display="flex";}
 function hideLoading(){loading.style.display="none";}
-function save(){history.push(JSON.stringify(state));}
 
+function smartLoadingStart(){
+ loadTimer=setTimeout(()=>{loading.style.display="flex";},300);
+}
+function smartLoadingEnd(){
+ clearTimeout(loadTimer);
+ loading.style.display="none";
+}
+
+/* ========= ナビ ========= */
+function save(){history.push(JSON.stringify(state));}
 back.onclick=()=>{
  if(history.length){
   state=JSON.parse(history.pop());
@@ -143,8 +158,10 @@ back.onclick=()=>{
  }
 };
 
+/* ========= 描画 ========= */
 function render(){
  back.style.display=(state.screen==="home"||state.screen==="trash")?"none":"block";
+ document.getElementById("trashBtn").style.display=(state.screen==="home")?"block":"none";
  topBar.style.display=(state.screen==="trash")?"flex":"none";
 
  if(state.screen==="home") home();
@@ -154,7 +171,7 @@ function render(){
  if(state.screen==="trash") trash();
 }
 
-/* ホーム */
+/* ========= ホーム ========= */
 function home(){
  app.innerHTML=`
  <h2>ホーム</h2>
@@ -167,7 +184,7 @@ function home(){
  `;
 }
 
-/* カメラ */
+/* ========= カメラ ========= */
 function goCam(){save();state.screen="cam";render();}
 
 async function cam(){
@@ -184,6 +201,7 @@ async function cam(){
  video.srcObject=s;
 }
 
+/* ========= トリミング ========= */
 function crop169(w,h){
  let r=16/9,cur=w/h;
  if(cur>r){
@@ -229,7 +247,7 @@ function retake(){
  document.getElementById("btns").innerHTML="";
 }
 
-/* 編集 */
+/* ========= 編集 ========= */
 function goEdit(){
  if(!state.tempImgs.length)return alert("画像なし");
  save();
@@ -291,7 +309,7 @@ function finishEdit(){
  render();
 }
 
-/* 送信 */
+/* ========= 送信 ========= */
 async function send(){
  try{
   showLoading();
@@ -307,7 +325,7 @@ async function send(){
  render();
 }
 
-/* データ取得 */
+/* ========= データ取得 ========= */
 async function fetchData(){
  if(cachedData) return cachedData;
 
@@ -326,15 +344,32 @@ async function fetchData(){
  return data;
 }
 
-/* 復習 */
+/* ========= 復習 ========= */
 async function startReview(mode){
  save();
  state.reviewMode=mode;
 
  showLoading();
+
  let data=await fetchData();
 
- state.reviewData=data;
+ let now=new Date();
+ let get=n=>{let d=new Date();d.setDate(now.getDate()-n);return d;}
+ function same(a,b){return a.toDateString()===b.toDateString();}
+
+ if(mode==="normal"){
+  state.reviewData=data.filter(x=>same(new Date(x.date),get(1)));
+ }
+ else if(mode==="alpha"){
+  state.reviewData=data.filter(x=>[3,7,14].some(n=>same(new Date(x.date),get(n))));
+ }
+ else if(mode==="plus"){
+  state.reviewData=data.filter(x=>[1,3,7,14].some(n=>same(new Date(x.date),get(n))));
+ }
+ else{
+  state.reviewData=data;
+ }
+
  state.reviewIndex=0;
  state.reviewSub=0;
  state.mode="q";
@@ -344,18 +379,27 @@ async function startReview(mode){
  render();
 }
 
-/* レビュー */
+/* ========= レビュー ========= */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return app.innerHTML="データなし";
 
  let list=state.mode==="q"?d.questions:d.answers;
 
+ let totalSet=state.reviewData.length;
+ let currentSet=state.reviewIndex+1;
+ let totalPage=list.length;
+ let currentPage=state.reviewSub+1;
+
  app.innerHTML=`
- <div>(${state.reviewIndex+1}/${state.reviewData.length})</div>
+ <div style="font-size:14px;">
+ セット ${currentSet}/${totalSet}（${currentPage}/${totalPage}）
+ </div>
+
  <div class="wrap" id="swipeArea">
  <img id="slideImg" class="slide" src="${list[state.reviewSub]}">
  </div>
+
  <button class="green" onclick="toggle()">切替</button>
  `;
 
@@ -375,37 +419,59 @@ function handleSwipe(){
  let diff=endX-startX;
  if(Math.abs(diff)<50) return;
 
- let img=document.getElementById("slideImg");
-
  if(diff<0){
-  img.style.transform="translateX(-100%)";
-  setTimeout(()=>{nextR();},200);
+  if(state.reviewSub<getList().length-1){
+   state.reviewSub++;
+  }else if(state.reviewIndex<state.reviewData.length-1){
+   state.reviewIndex++;
+   state.reviewSub=0;
+  }
  }else{
-  img.style.transform="translateX(100%)";
-  setTimeout(()=>{prevR();},200);
+  if(state.reviewSub>0){
+   state.reviewSub--;
+  }else if(state.reviewIndex>0){
+   state.reviewIndex--;
+   state.reviewSub=getList().length-1;
+  }
  }
+
+ render();
 }
 
-function nextR(){state.reviewSub++;render();}
-function prevR(){state.reviewSub--;render();}
-function toggle(){state.mode=state.mode==="q"?"a":"q";render();}
+function getList(){
+ let d=state.reviewData[state.reviewIndex];
+ return state.mode==="q"?d.questions:d.answers;
+}
 
-/* 🗑 ゴミ箱 */
+function toggle(){
+ state.mode=state.mode==="q"?"a":"q";
+ state.reviewSub=0;
+ render();
+}
+
+/* ========= ゴミ箱 ========= */
 async function openTrash(){
  state.screen="trash";
  state.selected=[];
+ state.page=0;
+
+ smartLoadingStart();
+
  let data=await fetchData();
- state.trashData=data;
+ state.allData=data;
+ state.viewData=data.slice(0,state.pageSize);
+
+ smartLoadingEnd();
  render();
 }
 
 function trash(){
  let html='<div class="grid">';
- state.trashData.forEach((d,i)=>{
+ state.viewData.forEach((d,i)=>{
   let sel=state.selected.includes(i)?"selected":"";
   html+=`
    <div class="item ${sel}" onclick="toggleSelect(${i})">
-    <img src="${d.questions[0]}">
+    <img src="${d.questions[0]}" loading="lazy">
    </div>
   `;
  });
@@ -424,14 +490,24 @@ function toggleSelect(i){
 
 async function deleteSelected(){
  if(!state.selected.length)return alert("選択なし");
+ if(!confirm("削除する？"))return;
+
+ smartLoadingStart();
 
  await fetch(URL,{
   method:"POST",
   body:JSON.stringify({deleteList:state.selected})
  });
 
- state.trashData=state.trashData.filter((_,i)=>!state.selected.includes(i));
+ /* キャッシュ削除 */
+ localStorage.removeItem("cache");
+ cachedData=null;
+
+ state.allData=state.allData.filter((_,i)=>!state.selected.includes(i));
+ state.viewData=state.allData.slice(0,(state.page+1)*state.pageSize);
  state.selected=[];
+
+ smartLoadingEnd();
  render();
 }
 
@@ -439,6 +515,20 @@ function goHome(){
  state.screen="home";
  render();
 }
+
+/* 無限スクロール */
+window.addEventListener("scroll",()=>{
+ if(state.screen!=="trash") return;
+
+ if(window.innerHeight + window.scrollY >= document.body.offsetHeight-200){
+  let next=(state.page+1)*state.pageSize;
+  if(next>=state.allData.length) return;
+
+  state.page++;
+  state.viewData=state.allData.slice(0,(state.page+1)*state.pageSize);
+  render();
+ }
+});
 
 render();
 </script>
