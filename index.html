@@ -96,7 +96,7 @@ function goBack(){
  if(!history.length) back.style.display="none";
 }
 
-/* 🔥 トリミング統一（核） */
+/* トリミング */
 function crop169(w,h){
  let r=16/9,cur=w/h;
  if(cur>r){
@@ -116,14 +116,16 @@ function render(){
  if(state.screen==="review") review();
 }
 
-/* ホーム */
+/* ホーム（完全復活） */
 function home(){
  back.style.display="none";
  app.innerHTML=`
  <h2>ホーム</h2>
  <button class="blue" onclick="goCam()">問題登録</button>
- <button class="green" onclick="startReview(1)">問題復習</button>
- <button class="purple" onclick="startReview(0)">総復習</button>
+ <button class="green" onclick="startReview('normal')">問題復習</button>
+ <button class="orange" onclick="startReview('alpha')">問題復習α</button>
+ <button class="red" onclick="startReview('plus')">問題復習＋</button>
+ <button class="purple" onclick="startReview('all')">総復習</button>
  <button class="dark" onclick="startContinue()">続きから総復習</button>
  `;
 }
@@ -145,7 +147,7 @@ async function cam(){
  video.srcObject=s;
 }
 
-/* 🔥 カメラ撮影（統一トリミング） */
+/* カメラ撮影 */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
@@ -182,7 +184,7 @@ function retake(){
  btns.innerHTML="";
 }
 
-/* 🔥 画像追加（←ここが今回の本命修正） */
+/* 画像追加（統一） */
 function handleImage(file){
  let img=new Image();
  img.onload=()=>{
@@ -194,11 +196,7 @@ function handleImage(file){
   c.width=1280;
   c.height=720;
 
-  ctx.drawImage(
-   img,
-   crop.sx,crop.sy,crop.sw,crop.sh,
-   0,0,1280,720
-  );
+  ctx.drawImage(img,crop.sx,crop.sy,crop.sw,crop.sh,0,0,1280,720);
 
   let data=c.toDataURL();
   state.tempImgs.push(data);
@@ -282,23 +280,36 @@ async function send(){
  render();
 }
 
-/* 復習 */
-async function startReview(type){
+/* 復習（完全版） */
+async function startReview(mode){
  save();
  let res=await fetch(URL);
  let data=await res.json();
 
- let y=new Date();y.setDate(y.getDate()-1);
+ let now=new Date();
+ let get=n=>{let d=new Date();d.setDate(now.getDate()-n);return d;}
 
- if(type===1){
-  state.reviewData=data.filter(x=>{
-   let d=new Date(x.date);
-   return d.toDateString()===y.toDateString();
-  });
- }else{
+ function same(d1,d2){
+  return d1.getFullYear()===d2.getFullYear() &&
+         d1.getMonth()===d2.getMonth() &&
+         d1.getDate()===d2.getDate();
+ }
+
+ if(mode==="normal"){
+  state.reviewData=data.filter(x=>same(new Date(x.date),get(1)));
+ }
+ else if(mode==="alpha"){
+  state.reviewData=data.filter(x=>[3,7,14].some(n=>same(new Date(x.date),get(n))));
+ }
+ else if(mode==="plus"){
+  state.reviewData=data.filter(x=>[1,3,7,14].some(n=>same(new Date(x.date),get(n))));
+ }
+ else{
   state.reviewData=data;
  }
 
+ state.reviewIndex=0;
+ state.reviewSub=0;
  state.screen="review";
  render();
 }
@@ -306,7 +317,7 @@ async function startReview(type){
 function startContinue(){
  state.reviewIndex=+localStorage.i||0;
  state.reviewSub=+localStorage.j||0;
- startReview(0);
+ startReview("all");
 }
 
 function review(){
