@@ -11,6 +11,7 @@ body{
  background:#f5f5f5;
 }
 
+/* ボタン */
 button{
  width:85%;
  height:65px;
@@ -26,16 +27,27 @@ button{
 .orange{background:#f39c12;}
 .red{background:#e74c3c;}
 .purple{background:#9b59b6;}
-.black{background:#333;}
+.dark{background:#222;}
 
+#back{
+ position:fixed;
+ top:10px;
+ left:10px;
+ width:50px;
+ height:50px;
+ background:#222;
+ color:white;
+}
+
+/* カメラ */
 video{
  width:90%;
  height:55vh;
  object-fit:cover;
- background:black;
  border-radius:10px;
 }
 
+/* 撮影後 */
 canvas{
  width:90%;
  max-height:55vh;
@@ -43,6 +55,34 @@ canvas{
  border-radius:10px;
 }
 
+/* 編集画像 */
+.imgWrap{
+ position:relative;
+ display:inline-block;
+}
+
+img{
+ width:90%;
+ max-height:55vh;
+ border-radius:10px;
+}
+
+/* ← → */
+.arrow{
+ position:absolute;
+ top:50%;
+ transform:translateY(-50%);
+ width:50px;
+ height:50px;
+ border-radius:50%;
+ background:#222;
+ color:white;
+}
+
+.left{left:-60px;}
+.right{right:-60px;}
+
+/* カメラボタン */
 .captureBtn{
  position:fixed;
  bottom:20px;
@@ -54,6 +94,7 @@ canvas{
  border:5px solid #ccc;
 }
 
+/* フラッシュ */
 #flash{
  position:fixed;
  top:50%;
@@ -71,6 +112,7 @@ canvas{
 <body>
 
 <div id="flash"></div>
+<button id="back" onclick="goHome()" style="display:none">←</button>
 <div id="app"></div>
 
 <script>
@@ -79,10 +121,11 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 /* ===== 状態 ===== */
 let qImgs=[],aImgs=[],tempImgs=[];
 let isAnswer=false;
-
 let video,canvas,ctx;
+let editIndex=0;
+let drawing=false;
 
-/* ===== フラッシュ ===== */
+/* ===== 共通 ===== */
 function flash(text){
  let f=document.getElementById("flash");
  f.innerText=text;
@@ -90,19 +133,30 @@ function flash(text){
  setTimeout(()=>f.style.display="none",500);
 }
 
+function setView(html){
+ document.getElementById("app").innerHTML=html;
+ document.getElementById("back").style.display="block";
+}
+
 /* ===== ホーム ===== */
 function goHome(){
+ document.getElementById("back").style.display="none";
+
  document.getElementById("app").innerHTML=`
   <h2>ホーム</h2>
   <button class="blue" onclick="goRegister()">問題登録</button>
-  <button class="green" onclick="goReview()">問題復習</button>
+  <button class="green">問題復習</button>
+  <button class="orange">α</button>
+  <button class="red">＋</button>
+  <button class="purple">総復習</button>
+  <button class="dark">続きから</button>
  `;
 }
 
 /* ===== 登録 ===== */
 function goRegister(){
 
- document.getElementById("app").innerHTML=`
+ setView(`
   <h2>${isAnswer?"答え撮影":"問題撮影"}</h2>
 
   <video id="video" autoplay playsinline muted></video>
@@ -114,9 +168,7 @@ function goRegister(){
   <button class="green" onclick="startEdit()">編集</button>
 
   <div id="count">問題:${qImgs.length + (!isAnswer?tempImgs.length:0)} 答え:${aImgs.length + (isAnswer?tempImgs.length:0)}</div>
-
-  <button class="black" onclick="goHome()">戻る</button>
- `;
+ `);
 
  video=document.getElementById("video");
  canvas=document.getElementById("canvas");
@@ -127,12 +179,8 @@ function goRegister(){
 
 /* カメラ */
 async function startCamera(){
- try{
-  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
-  video.srcObject=s;
- }catch(e){
-  alert("カメラ許可して");
- }
+ const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+ video.srcObject=s;
 }
 
 function capture(){
@@ -145,9 +193,7 @@ function capture(){
 function add(){
  if(canvas.width===0)return alert("先に撮影");
 
- const img=canvas.toDataURL();
- tempImgs.push(img);
-
+ tempImgs.push(canvas.toDataURL());
  updateCount();
  flash("追加完了");
 }
@@ -158,27 +204,31 @@ function updateCount(){
 }
 
 /* ===== 編集 ===== */
-let editIndex=0;
-
 function startEdit(){
  if(tempImgs.length===0)return alert("画像なし");
 
  editIndex=0;
 
- document.getElementById("app").innerHTML=`
+ setView(`
   <h2>編集</h2>
 
-  <button onclick="prev()">←</button>
-  <img id="img">
-  <button onclick="next()">→</button>
+  <div class="imgWrap">
+    <button class="arrow left" onclick="prev()">←</button>
+    <img id="img">
+    <button class="arrow right" onclick="next()">→</button>
+  </div>
 
   <canvas id="canvas"></canvas>
 
   <button class="green" onclick="finishEdit()">完了</button>
- `;
+ `);
 
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
+
+ canvas.addEventListener("touchstart",e=>{drawing=true;draw(e);});
+ canvas.addEventListener("touchmove",draw);
+ canvas.addEventListener("touchend",()=>drawing=false);
 
  show();
 }
@@ -191,6 +241,15 @@ function show(){
   canvas.height=img.height;
   ctx.drawImage(img,0,0);
  };
+}
+
+function draw(e){
+ if(!drawing)return;
+ e.preventDefault();
+ const rect=canvas.getBoundingClientRect();
+ const x=(e.touches[0].clientX-rect.left)*(canvas.width/rect.width);
+ const y=(e.touches[0].clientY-rect.top)*(canvas.height/rect.height);
+ ctx.fillRect(x,y,4,4);
 }
 
 function next(){save();if(editIndex<tempImgs.length-1)editIndex++;show();}
@@ -214,7 +273,7 @@ function finishEdit(){
  goRegister();
 }
 
-/* ===== 送信 ===== */
+/* 送信 */
 async function send(){
  await fetch(URL,{
   method:"POST",
@@ -229,11 +288,6 @@ async function send(){
 
  alert("保存完了");
  goHome();
-}
-
-/* ===== 復習（仮） ===== */
-function goReview(){
- alert("復習は後で統合する");
 }
 
 /* 初期 */
