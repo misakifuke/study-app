@@ -28,18 +28,16 @@ button{
  background:#222;color:white;
 }
 
-/* カメラ表示（横固定） */
 video{
  width:92%;
  aspect-ratio:16/9;
- object-fit:contain; /* ← coverじゃない */
+ object-fit:contain;
  background:black;
  border-radius:12px;
  display:block;
  margin:10px auto;
 }
 
-/* 画像（そのまま） */
 img{
  width:92%;
  height:auto;
@@ -49,7 +47,6 @@ img{
  margin:10px auto;
 }
 
-/* 編集 */
 #canvas{
  width:92%;
  height:auto;
@@ -183,7 +180,6 @@ function register(){
  startCamera();
 }
 
-/* カメラ */
 async function startCamera(){
  const s=await navigator.mediaDevices.getUserMedia({
   video:{facingMode:"environment"}
@@ -191,20 +187,34 @@ async function startCamera(){
  video.srcObject=s;
 }
 
-/* 🔥 完全一致キャプチャ */
+/* 🔥 完全最終キャプチャ（端末対応） */
 function capture(){
  let c=document.createElement("canvas");
  let ctx=c.getContext("2d");
 
- let w = video.videoWidth;
- let h = video.videoHeight;
+ let w=video.videoWidth;
+ let h=video.videoHeight;
 
- c.width = w;
- c.height = h;
+ // 端末が縦かどうか
+ let isPortrait = window.innerHeight > window.innerWidth;
 
- ctx.drawImage(video, 0, 0, w, h);
+ if(isPortrait && h > w){
+  // 回転補正
+  c.width = h;
+  c.height = w;
 
- captured = c.toDataURL();
+  ctx.translate(c.width/2, c.height/2);
+  ctx.rotate(Math.PI/2);
+  ctx.drawImage(video, -w/2, -h/2, w, h);
+
+ }else{
+  // そのまま
+  c.width = w;
+  c.height = h;
+  ctx.drawImage(video,0,0,w,h);
+ }
+
+ captured=c.toDataURL();
 
  video.style.display="none";
  let img=document.getElementById("preview");
