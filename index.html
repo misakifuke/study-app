@@ -128,7 +128,7 @@ function render(){
  if(state.screen==="review") review();
 }
 
-/* 🔥 ホーム完全復元 */
+/* ホーム */
 function home(){
  document.getElementById("back").style.display="none";
  document.getElementById("app").innerHTML=`
@@ -247,27 +247,28 @@ function edit(){
  show();
 }
 
-/* 描画ズレ修正 */
-function draw(e){
- e.preventDefault();
- const rect=canvas.getBoundingClientRect();
- const scaleX=canvas.width/rect.width;
- const scaleY=canvas.height/rect.height;
- const t=e.touches[0];
- const x=(t.clientX-rect.left)*scaleX;
- const y=(t.clientY-rect.top)*scaleY;
- ctx.fillStyle="red";
- ctx.fillRect(x,y,5,5);
-}
-
+/* 🔥 描画完全修正 */
 function show(){
  let img=new Image();
  img.src=state.tempImgs[state.editIndex];
  img.onload=()=>{
-  canvas.width=img.width;
-  canvas.height=img.height;
-  ctx.drawImage(img,0,0);
+  const rect = canvas.getBoundingClientRect();
+
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
  };
+}
+
+function draw(e){
+ e.preventDefault();
+ const rect = canvas.getBoundingClientRect();
+ const x = e.touches[0].clientX - rect.left;
+ const y = e.touches[0].clientY - rect.top;
+ ctx.fillStyle="red";
+ ctx.fillRect(x,y,5,5);
 }
 
 function next(){saveEdit();if(state.editIndex<state.tempImgs.length-1)state.editIndex++;show();}
