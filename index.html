@@ -4,65 +4,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
-
-button{
- width:90%;height:65px;margin:8px;
- border:none;border-radius:12px;
- color:white;font-size:16px;
-}
-
-.blue{background:#3498db;}
-.green{background:#2ecc71;}
-.orange{background:#f39c12;}
-.red{background:#e74c3c;}
-.purple{background:#9b59b6;}
-.dark{background:#222;}
+button{width:90%;height:65px;margin:8px;border:none;border-radius:12px;color:#fff;font-size:16px;}
+.blue{background:#3498db;} .green{background:#2ecc71;}
+.orange{background:#f39c12;} .red{background:#e74c3c;}
+.purple{background:#9b59b6;} .dark{background:#222;}
 
 #back{
  position:fixed;top:10px;left:10px;
- width:55px;height:55px;background:#222;color:white;
+ width:55px;height:55px;
+ background:#222;color:#fff;
+ z-index:1000;
 }
 
 video,img,canvas{
- width:92%;
- aspect-ratio:16/9;
- object-fit:cover;
- border-radius:12px;
- margin:10px auto;
- display:block;
- background:black;
+ width:92%;aspect-ratio:16/9;object-fit:cover;
+ border-radius:12px;margin:10px auto;display:block;background:#000;
 }
 
 .captureBtn{
  position:fixed;bottom:20px;left:50%;
  transform:translateX(-50%);
- width:70px;height:70px;
- border-radius:50%;
- background:white;border:4px solid #ccc;
+ width:70px;height:70px;border-radius:50%;
+ background:#fff;border:4px solid #ccc;
 }
 
 .wrap{position:relative;}
 .arrow{
- position:absolute;top:50%;
- transform:translateY(-50%);
- width:45px;height:45px;
- border-radius:50%;
- background:#222;color:white;
+ position:absolute;top:50%;transform:translateY(-50%);
+ width:45px;height:45px;border-radius:50%;
+ background:#222;color:#fff;
 }
-.left{left:10px;}
-.right{right:10px;}
+.left{left:10px;} .right{right:10px;}
 
 #loading{
- position:fixed;
- top:0;left:0;
- width:100%;height:100%;
- background:rgba(0,0,0,0.6);
- color:#fff;
- display:none;
- align-items:center;
- justify-content:center;
- font-size:20px;
- z-index:999;
+ position:fixed;top:0;left:0;width:100%;height:100%;
+ background:rgba(0,0,0,0.6);color:#fff;
+ display:none;align-items:center;justify-content:center;
+ font-size:20px;z-index:999;
 }
 </style>
 </head>
@@ -70,7 +48,7 @@ video,img,canvas{
 <body>
 
 <div id="loading">しばらくお待ちください...</div>
-<button id="back" style="display:none">←</button>
+<button id="back">←</button>
 <div id="app"></div>
 
 <script>
@@ -85,6 +63,7 @@ let video,canvas,ctx;
 
 let state={
  screen:"home",
+ reviewMode:"",
  qImgs:[],aImgs:[],tempImgs:[],
  isAnswer:false,
  editIndex:0,
@@ -98,13 +77,13 @@ function showLoading(){loading.style.display="flex";}
 function hideLoading(){loading.style.display="none";}
 
 /* 戻る */
-function save(){history.push(JSON.parse(JSON.stringify(state)));back.style.display="block";}
-back.onclick=()=>goBack();
+function save(){history.push(JSON.parse(JSON.stringify(state)));}
+back.onclick=goBack;
+
 function goBack(){
  if(!history.length)return;
  state=history.pop();
  render();
- if(!history.length) back.style.display="none";
 }
 
 /* トリミング */
@@ -121,6 +100,8 @@ function crop169(w,h){
 
 /* 画面 */
 function render(){
+ back.style.display = (state.screen==="home") ? "none" : "block";
+
  if(state.screen==="home") home();
  if(state.screen==="cam") cam();
  if(state.screen==="edit") edit();
@@ -129,7 +110,6 @@ function render(){
 
 /* ホーム */
 function home(){
- back.style.display="none";
  app.innerHTML=`
  <h2>ホーム</h2>
  <button class="blue" onclick="goCam()">問題登録</button>
@@ -264,13 +244,16 @@ async function send(){
  }catch(e){alert("送信失敗");}
  hideLoading();
 
- state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false};
+ state={screen:"home",reviewMode:"",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false};
  history=[];
  render();
 }
 
 /* 復習 */
 async function startReview(mode){
+ save();
+ state.reviewMode=mode;
+
  try{
   showLoading();
   let res=await fetch(URL);
@@ -301,18 +284,21 @@ async function startReview(mode){
   state.reviewIndex=0;
   state.reviewSub=0;
   state.screen="review";
+
  }catch(e){alert("読み込み失敗");}
+
  hideLoading();
  render();
 }
 
 function startContinue(){
+ state.reviewMode="all";
  state.reviewIndex=+localStorage.i||0;
  state.reviewSub=+localStorage.j||0;
  startReview("all");
 }
 
-/* 🔥 ここが追加ポイント（進捗表示） */
+/* レビュー */
 function review(){
  let d=state.reviewData[state.reviewIndex];
  if(!d)return app.innerHTML="データなし";
@@ -321,24 +307,23 @@ function review(){
 
  let totalSet=state.reviewData.length;
  let currentSet=state.reviewIndex+1;
-
  let totalPage=list.length;
  let currentPage=state.reviewSub+1;
 
  app.innerHTML=`
  <div style="margin-top:10px;font-size:14px;">
-  セット ${currentSet} / ${totalSet}　
-  （ページ ${currentPage} / ${totalPage}）
+ セット ${currentSet} / ${totalSet}（ページ ${currentPage} / ${totalPage}）
  </div>
 
  <div class="wrap">
-  <button class="arrow left" onclick="prevR()">←</button>
-  <img src="${list[state.reviewSub]}">
-  <button class="arrow right" onclick="nextR()">→</button>
+ <button class="arrow left" onclick="prevR()">←</button>
+ <img src="${list[state.reviewSub]}">
+ <button class="arrow right" onclick="nextR()">→</button>
  </div>
 
  <button class="green" onclick="toggle()">切替</button>
- <button class="dark" onclick="saveProg()">保存</button>
+
+ ${state.reviewMode==="all" ? '<button class="dark" onclick="saveProg()">保存</button>' : ''}
  `;
 }
 
