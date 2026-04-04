@@ -58,8 +58,8 @@ video,img,canvas{
  opacity:0.9;
 }
 
-.left{left:-20px;}
-.right{right:-20px;}
+.left{left:-10px;}
+.right{right:-10px;}
 
 #loading{
  position:fixed;
@@ -84,7 +84,7 @@ video,img,canvas{
 
 <script>
 
-/* 🔥 ここが今回の本質（完全リセット） */
+/* 🔥 キャッシュ完全無効 */
 localStorage.removeItem("cache");
 
 const app=document.getElementById("app");
@@ -173,6 +173,7 @@ async function cam(){
  video.srcObject=s;
 }
 
+/* 撮影 */
 function capture(){
  let c=document.createElement("canvas");
  let cx=c.getContext("2d");
@@ -194,8 +195,14 @@ function capture(){
  `;
 }
 
+/* 🔥 重要修正済み */
 function add(d){
- state.tempImgs.push(d);
+ if(state.isAnswer){
+  state.aImgs.push(d);
+ }else{
+  state.tempImgs.push(d);
+ }
+
  video.style.display="block";
  document.getElementById("prev").style.display="none";
  document.getElementById("btns").innerHTML="";
@@ -285,7 +292,7 @@ async function send(){
  render();
 }
 
-/* 保存 */
+/* 続き */
 function saveProg(){
  localStorage.setItem("save",JSON.stringify({
   reviewIndex:state.reviewIndex,
@@ -309,15 +316,10 @@ function startContinue(){
  startReview(state.reviewMode,true);
 }
 
-/* キャッシュ */
+/* データ取得 */
 async function fetchData(){
- if(cachedData) return cachedData;
-
  let res=await fetch(URL);
- let data=await res.json();
-
- cachedData=data;
- return data;
+ return await res.json();
 }
 
 /* 復習 */
@@ -329,8 +331,7 @@ async function startReview(mode,isContinue=false){
 
  try{
   let data=await fetchData();
-
-  state.reviewData=data || [];
+  state.reviewData=data||[];
 
   if(!isContinue){
    state.reviewIndex=0;
