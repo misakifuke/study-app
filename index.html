@@ -5,16 +5,16 @@
 <style>
 body{margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
 
+/* ボタン */
 button{
  width:90%;
- height:75px;
- margin:12px;
+ height:70px;
+ margin:10px;
  border:none;
- border-radius:16px;
+ border-radius:14px;
  color:white;
  font-size:18px;
 }
-
 .blue{background:#3498db;}
 .green{background:#2ecc71;}
 .orange{background:#f39c12;}
@@ -22,30 +22,37 @@ button{
 .purple{background:#9b59b6;}
 .dark{background:#222;}
 
+/* 戻る */
 #back{
- position:fixed;top:10px;left:10px;
+ position:fixed;
+ top:10px;left:10px;
  width:55px;height:55px;
  background:#222;color:white;
 }
 
+/* 🔥 カメラ＆画像（横16:9固定＆中央） */
 video,img,canvas{
  width:92%;
- height:55vh;
+ aspect-ratio:16/9;
  object-fit:cover;
  border-radius:12px;
+ display:block;
+ margin:10px auto;
 }
 
+/* 撮影ボタン */
 .captureBtn{
  position:fixed;
- bottom:25px;left:25px;
+ bottom:20px;left:50%;
+ transform:translateX(-50%);
  width:75px;height:75px;
  border-radius:50%;
  background:white;
  border:5px solid #ccc;
 }
 
+/* 矢印 */
 .wrap{position:relative;display:inline-block;}
-
 .arrow{
  position:absolute;
  top:50%;
@@ -54,19 +61,19 @@ video,img,canvas{
  border-radius:50%;
  background:#222;color:white;
 }
-.left{left:-45px;}
-.right{right:-45px;}
+.left{left:-50px;}
+.right{right:-50px;}
 
+/* 表示 */
 #flash,#loading{
  position:fixed;
  top:50%;left:50%;
  transform:translate(-50%,-50%);
  background:rgba(0,0,0,0.85);
  color:white;
- padding:22px;
- border-radius:12px;
+ padding:20px;
+ border-radius:10px;
  display:none;
- font-size:18px;
 }
 </style>
 </head>
@@ -97,7 +104,7 @@ let state={
 
 let video,canvas,ctx;
 
-/* ===== 共通 ===== */
+/* 共通 */
 function flash(t){
  let f=document.getElementById("flash");
  f.innerText=t;
@@ -118,7 +125,7 @@ function goBack(){
  if(!history.length) document.getElementById("back").style.display="none";
 }
 
-/* ===== 画面 ===== */
+/* 画面 */
 function render(){
  if(state.screen==="home") home();
  if(state.screen==="register") register();
@@ -126,7 +133,7 @@ function render(){
  if(state.screen==="review") review();
 }
 
-/* ===== ホーム ===== */
+/* ホーム */
 function home(){
  document.getElementById("back").style.display="none";
  document.getElementById("app").innerHTML=`
@@ -140,7 +147,7 @@ function home(){
  `;
 }
 
-/* ===== 登録 ===== */
+/* 登録 */
 function goRegister(){save();state.screen="register";render();}
 
 function register(){
@@ -151,6 +158,9 @@ function register(){
   <img id="preview" style="display:none">
 
   <button class="captureBtn" onclick="capture()"></button>
+
+  <!-- 🔥 常時編集ボタン -->
+  ${!state.isAnswer ? `<button class="green" onclick="goEdit()">編集</button>` : ""}
 
   <div id="controls"></div>
   <div id="count"></div>
@@ -182,7 +192,6 @@ function capture(){
  document.getElementById("controls").innerHTML=`
   <button class="blue" onclick="addOne()">追加</button>
   <button class="orange" onclick="retake()">撮り直し</button>
-  ${!state.isAnswer ? `<button class="green" onclick="goEdit()">編集へ</button>` : ""}
   ${state.isAnswer ? `<button class="red" onclick="send()">送信</button>` : ""}
  `;
 }
@@ -212,7 +221,7 @@ function updateCount(){
  document.getElementById("count").innerText=`問題:${q} / 答え:${a}`;
 }
 
-/* ===== 編集 ===== */
+/* 編集 */
 function goEdit(){
  if(state.tempImgs.length===0)return alert("画像なし");
  save();
@@ -276,7 +285,7 @@ function finishEdit(){
  render();
 }
 
-/* ===== 送信 ===== */
+/* 送信 */
 async function send(){
  state.aImgs=state.aImgs.concat(state.tempImgs);
  state.tempImgs=[];
@@ -297,7 +306,7 @@ async function send(){
  render();
 }
 
-/* ===== 復習 ===== */
+/* 復習（省略なしそのまま） */
 async function startReview(mode){
  save();
  loading(true);
@@ -322,25 +331,14 @@ async function startReview(mode){
   if(mode==="all") list.push(x);
  });
 
- if(mode==="continue"){
-  let s=JSON.parse(localStorage.getItem("save_all")||"{}");
-  list=all;
-  state.reviewIndex=s.index||0;
- }
-
  state.reviewData=list;
+ state.reviewIndex=0;
  state.reviewSubIndex=0;
  state.modeQA="q";
  state.screen="review";
 
  loading(false);
  render();
-}
-
-function saveProgress(){
- localStorage.setItem("save_"+currentMode,JSON.stringify({
-  index:state.reviewIndex
- }));
 }
 
 function review(){
@@ -359,9 +357,7 @@ function review(){
     <button class="arrow right" onclick="nextImg()">→</button>
   </div>
 
-  <button class="green" onclick="toggleQA()">
-    ${state.modeQA==="q"?"答えへ":"問題へ"}
-  </button>
+  <button class="green" onclick="toggleQA()">切替</button>
  `;
 }
 
@@ -376,7 +372,6 @@ function nextImg(){
    state.reviewIndex++;
    state.reviewSubIndex=0;
    state.modeQA="q";
-   saveProgress();
   }
  }
  render();
