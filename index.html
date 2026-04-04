@@ -104,7 +104,8 @@ let state={
  reviewIndex:0,
  reviewSubIndex:0,
  modeQA:"q",
- continueIndex:0
+ continueIndex:0,
+ continueSubIndex:0
 };
 
 let video,canvas,ctx;
@@ -307,12 +308,12 @@ async function send(){
 
  loading(false);
 
- state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,reviewSubIndex:0,modeQA:"q",continueIndex:0};
+ state={screen:"home",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false,editIndex:0,reviewData:[],reviewIndex:0,reviewSubIndex:0,modeQA:"q",continueIndex:0,continueSubIndex:0};
  history=[];
  render();
 }
 
-/* 復習開始 */
+/* 復習 */
 async function startReview(mode){
  save();
  loading(true);
@@ -321,19 +322,21 @@ async function startReview(mode){
  let all=await res.json();
 
  let saved = localStorage.getItem("continueIndex");
- if(saved!==null){
-  state.continueIndex = Number(saved);
- }
+ let savedSub = localStorage.getItem("continueSubIndex");
+
+ if(saved!==null) state.continueIndex=Number(saved);
+ if(savedSub!==null) state.continueSubIndex=Number(savedSub);
 
  if(mode==="continue"){
   state.reviewData=all;
   state.reviewIndex=state.continueIndex||0;
+  state.reviewSubIndex=state.continueSubIndex||0;
  }else{
   state.reviewData=all;
   state.reviewIndex=0;
+  state.reviewSubIndex=0;
  }
 
- state.reviewSubIndex=0;
  state.modeQA="q";
  state.screen="review";
 
@@ -363,24 +366,44 @@ function review(){
  `;
 }
 
-function saveProgress(){
- state.continueIndex = state.reviewIndex;
- localStorage.setItem("continueIndex", state.continueIndex);
- flash("保存完了");
-}
-
+/* ページ単位移動 */
 function nextImg(){
- if(state.reviewIndex < state.reviewData.length-1){
-  state.reviewIndex++;
+ let d=state.reviewData[state.reviewIndex];
+ let list=state.modeQA==="q"?d.questions:d.answers;
+
+ if(state.reviewSubIndex < list.length-1){
+  state.reviewSubIndex++;
+ }else{
+  if(state.reviewIndex < state.reviewData.length-1){
+   state.reviewIndex++;
+   state.reviewSubIndex=0;
+   state.modeQA="q";
+  }
  }
  render();
 }
 
 function prevImg(){
- if(state.reviewIndex>0){
+ if(state.reviewSubIndex>0){
+  state.reviewSubIndex--;
+ }else if(state.reviewIndex>0){
   state.reviewIndex--;
+  let d=state.reviewData[state.reviewIndex];
+  let list=state.modeQA==="q"?d.questions:d.answers;
+  state.reviewSubIndex=list.length-1;
  }
  render();
+}
+
+/* 保存 */
+function saveProgress(){
+ state.continueIndex=state.reviewIndex;
+ state.continueSubIndex=state.reviewSubIndex;
+
+ localStorage.setItem("continueIndex",state.continueIndex);
+ localStorage.setItem("continueSubIndex",state.continueSubIndex);
+
+ flash("保存完了");
 }
 
 function toggleQA(){
