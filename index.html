@@ -4,7 +4,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
-
 #app{padding-top:70px;}
 
 button{
@@ -21,8 +20,7 @@ button{
 .dark{background:#222;}
 
 #back{
- position:fixed;
- top:10px;left:10px;
+ position:fixed;top:10px;left:10px;
  width:55px;height:55px;
  background:#222;color:#fff;
  z-index:1000;
@@ -58,7 +56,6 @@ video,img,canvas{
  opacity:0.9;
 }
 
-/* 🔥 半分だけ被る位置 */
 .left{left:-20px;}
 .right{right:-20px;}
 
@@ -92,6 +89,7 @@ const URL="https://script.google.com/macros/s/AKfycbwoIEq2Bvxc8f1-glqP-0K_SBVdqi
 
 let history=[];
 let video,canvas,ctx;
+let cachedData=null;
 
 let state={
  screen:"home",
@@ -107,7 +105,6 @@ let state={
 
 function showLoading(){loading.style.display="flex";}
 function hideLoading(){loading.style.display="none";}
-
 function save(){history.push(JSON.stringify(state));}
 
 back.onclick=()=>{
@@ -159,8 +156,14 @@ async function cam(){
  <img id="prev" style="display:none">
  <button class="captureBtn" onclick="capture()"></button>
  <div id="btns"></div>
- <button class="green" onclick="goEdit()">編集</button>
- ${state.isAnswer?'<button class="red" onclick="send()">送信</button>':''}
+
+ ${!state.isAnswer 
+   ? '<button class="green" onclick="goEdit()">編集</button>' 
+   : ''}
+
+ ${state.isAnswer 
+   ? '<button class="red" onclick="send()">送信</button>' 
+   : ''}
  `;
  video=document.getElementById("video");
  let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
@@ -176,7 +179,7 @@ function capture(){
  c.width=1280;c.height=720;
  cx.drawImage(video,crop.sx,crop.sy,crop.sw,crop.sh,0,0,1280,720);
 
- let data=c.toDataURL();
+ let data=c.toDataURL("image/jpeg",0.7);
 
  video.style.display="none";
  let prev=document.getElementById("prev");
@@ -303,15 +306,25 @@ function startContinue(){
  startReview(state.reviewMode,true);
 }
 
+/* データ取得（キャッシュ） */
+async function fetchData(){
+ if(cachedData) return cachedData;
+ let res=await fetch(URL);
+ let data=await res.json();
+ cachedData=data;
+ return data;
+}
+
 /* 復習 */
 async function startReview(mode,isContinue=false){
  save();
  state.reviewMode=mode;
 
+ showLoading();
+
+ setTimeout(async ()=>{
  try{
-  showLoading();
-  let res=await fetch(URL);
-  let data=await res.json();
+  let data=await fetchData();
 
   let now=new Date();
   let get=n=>{let d=new Date();d.setDate(now.getDate()-n);return d;}
@@ -347,6 +360,7 @@ async function startReview(mode,isContinue=false){
 
  hideLoading();
  render();
+ },100);
 }
 
 /* レビュー */
