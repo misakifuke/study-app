@@ -287,24 +287,20 @@ function finishEdit(){
  render();
 }
 
-/* ===== 送信（Firebase） ===== */
+/* ===== 送信 ===== */
 
 async function send(){
  try{
   showLoading();
-
   await addDoc(collection(db,"questions"),{
     questions:state.qImgs,
     answers:state.aImgs,
     date:new Date().toISOString()
   });
-
  }catch(e){
   alert("保存失敗");
  }
-
  hideLoading();
-
  state={screen:"home",reviewMode:"",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false};
  history=[];
  render();
@@ -335,7 +331,7 @@ function startContinue(){
  startReview(state.reviewMode,true);
 }
 
-/* ===== 取得（Firebase） ===== */
+/* ===== 取得 ===== */
 
 async function fetchData(){
  let snap=await getDocs(collection(db,"questions"));
@@ -455,6 +451,22 @@ function toggle(){
  state.reviewSub=0;
  render();
 }
+
+/* ===== ★修正：ボタン動作用 ===== */
+
+window.goCam = goCam;
+window.startReview = startReview;
+window.startContinue = startContinue;
+window.capture = capture;
+window.add = add;
+window.retake = retake;
+window.goEdit = goEdit;
+window.finishEdit = finishEdit;
+window.prevImg = prevImg;
+window.nextImg = nextImg;
+window.send = send;
+window.toggle = toggle;
+window.saveProg = saveProg;
 
 render();
 
