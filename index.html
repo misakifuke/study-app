@@ -4,23 +4,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 
-body{
- margin:0;
- font-family:sans-serif;
- text-align:center;
- background:#f5f5f5;
-}
-
+body{margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
 #app{padding-top:80px;}
 
 button{
- width:90%;
- height:60px;
- margin:6px;
- border:none;
- border-radius:12px;
- color:#fff;
- font-size:15px;
+ width:90%;height:60px;margin:6px;
+ border:none;border-radius:12px;
+ color:#fff;font-size:15px;
 }
 
 .blue{background:#3498db;}
@@ -31,13 +21,9 @@ button{
 .dark{background:#222;}
 
 #back{
- position:fixed;
- top:10px;
- left:10px;
- width:55px;
- height:55px;
- background:#222;
- color:#fff;
+ position:fixed;top:10px;left:10px;
+ width:55px;height:55px;
+ background:#222;color:#fff;
  z-index:1000;
 }
 
@@ -51,53 +37,34 @@ video,img,canvas{
  background:#000;
 }
 
-/* シャッター */
 .captureBtn{
- position:fixed;
- bottom:20px;
- left:50%;
+ position:fixed;bottom:20px;left:50%;
  transform:translateX(-50%);
- width:80px;
- height:80px;
+ width:80px;height:80px;
  border-radius:50%;
- background:#fff;
- border:5px solid #ccc;
+ background:#fff;border:5px solid #ccc;
  z-index:2000;
 }
 
-/* スワイプ */
-.wrap{
- position:relative;
- overflow:hidden;
-}
+.wrap{position:relative;overflow:hidden;}
+.slide{transition:transform 0.25s ease;}
 
-.slide{
- transition:transform 0.25s ease;
-}
-
-/* 矢印 */
 .arrow{
  position:absolute;
  top:50%;
  transform:translateY(-50%);
- width:50px;
- height:50px;
+ width:50px;height:50px;
  border-radius:50%;
- background:#222;
- color:#fff;
+ background:#222;color:#fff;
  opacity:0.9;
 }
 
 .left{left:-15px;}
 .right{right:-15px;}
 
-/* ローディング */
 #loading{
- position:fixed;
- top:0;
- left:0;
- width:100%;
- height:100%;
+ position:fixed;top:0;left:0;
+ width:100%;height:100%;
  background:rgba(0,0,0,0.6);
  color:#fff;
  display:none;
@@ -116,9 +83,25 @@ video,img,canvas{
 <button id="back">←</button>
 <div id="app"></div>
 
-<script>
+<script type="module">
 
-const URL="https://script.google.com/macros/s/AKfycbwu_1cwnO70UrkiDEAKtZdZy2Dw4Lr6RsA7ksS42DIJheu-wnVjC-ZBGcUxUJ5fRMyB/exec";
+/* ===== Firebase ===== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBcDoxg5Lv-Pch6ll3kp3KHOyqgRAvajau",
+  authDomain: "studyapp-fd328.firebaseapp.com",
+  projectId: "studyapp-fd328",
+  storageBucket: "studyapp-fd328.firebasestorage.app",
+  messagingSenderId: "143218536074",
+  appId: "1:143218536074:web:42de43c56334ea3c920773"
+};
+
+const appFirebase = initializeApp(firebaseConfig);
+const db = getFirestore(appFirebase);
+
+/* ===== 基本 ===== */
 
 const app=document.getElementById("app");
 const back=document.getElementById("back");
@@ -126,7 +109,6 @@ const loading=document.getElementById("loading");
 
 let history=[];
 let video,canvas,ctx;
-
 let startX=0,endX=0;
 
 let state={
@@ -143,19 +125,9 @@ let state={
  mode:"q"
 };
 
-/* ================= 基本 ================= */
-
-function showLoading(){
- loading.style.display="flex";
-}
-
-function hideLoading(){
- loading.style.display="none";
-}
-
-function save(){
- history.push(JSON.stringify(state));
-}
+function showLoading(){loading.style.display="flex";}
+function hideLoading(){loading.style.display="none";}
+function save(){history.push(JSON.stringify(state));}
 
 back.onclick=()=>{
  if(history.length){
@@ -164,12 +136,10 @@ back.onclick=()=>{
  }
 };
 
-/* ================= 16:9 ================= */
+/* ===== 16:9 ===== */
 
 function crop169(w,h){
- let r=16/9;
- let cur=w/h;
-
+ let r=16/9,cur=w/h;
  if(cur>r){
   let nw=h*r;
   return {sx:(w-nw)/2,sy:0,sw:nw,sh:h};
@@ -179,123 +149,70 @@ function crop169(w,h){
  }
 }
 
-/* ================= 画面 ================= */
+/* ===== 画面 ===== */
 
 function render(){
-
  back.style.display=(state.screen==="home")?"none":"block";
-
  if(state.screen==="home") home();
  if(state.screen==="cam") cam();
  if(state.screen==="edit") edit();
  if(state.screen==="review") review();
 }
 
-/* ================= ホーム ================= */
+/* ===== ホーム ===== */
 
 function home(){
  app.innerHTML=`
  <h2>ホーム</h2>
 
  <button class="blue" onclick="goCam()">問題登録</button>
-
- <button class="green" onclick="startReview('normal')">
- 通常（1日前）
- </button>
-
- <button class="orange" onclick="startReview('alpha')">
- α（3・5・14日前）
- </button>
-
- <button class="red" onclick="startReview('plus')">
- ＋（1・3・5・14日前）
- </button>
-
- <button class="purple" onclick="startReview('all')">
- 総復習
- </button>
-
- <button class="dark" onclick="startContinue()">
- 続きから総復習
- </button>
+ <button class="green" onclick="startReview('normal')">通常（1日前）</button>
+ <button class="orange" onclick="startReview('alpha')">α（3・5・14日前）</button>
+ <button class="red" onclick="startReview('plus')">＋（1・3・5・14日前）</button>
+ <button class="purple" onclick="startReview('all')">総復習</button>
+ <button class="dark" onclick="startContinue()">続きから総復習</button>
  `;
 }
 
-/* ================= カメラ ================= */
+/* ===== カメラ ===== */
 
-function goCam(){
- save();
- state.screen="cam";
- render();
-}
+function goCam(){save();state.screen="cam";render();}
 
 async function cam(){
-
  app.innerHTML=`
  <video id="video" autoplay playsinline></video>
  <img id="prev" style="display:none">
-
  <button class="captureBtn" onclick="capture()"></button>
-
  <div id="btns"></div>
-
  ${!state.isAnswer ? '<button class="green" onclick="goEdit()">編集</button>' : ''}
  ${state.isAnswer ? '<button class="red" onclick="send()">送信</button>' : ''}
  `;
-
  video=document.getElementById("video");
-
- let s=await navigator.mediaDevices.getUserMedia({
-  video:{facingMode:"environment"}
- });
-
+ let s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
  video.srcObject=s;
 }
 
-/* ================= 撮影 ================= */
+/* ===== 撮影 ===== */
 
 function capture(){
-
  let c=document.createElement("canvas");
  let cx=c.getContext("2d");
-
- let w=video.videoWidth;
- let h=video.videoHeight;
-
+ let w=video.videoWidth,h=video.videoHeight;
  let crop=crop169(w,h);
-
- c.width=1280;
- c.height=720;
-
- cx.drawImage(video,
-  crop.sx,crop.sy,crop.sw,crop.sh,
-  0,0,1280,720
- );
-
+ c.width=1280;c.height=720;
+ cx.drawImage(video,crop.sx,crop.sy,crop.sw,crop.sh,0,0,1280,720);
  let data=c.toDataURL("image/jpeg",0.7);
-
  video.style.display="none";
-
  let prev=document.getElementById("prev");
- prev.src=data;
- prev.style.display="block";
-
+ prev.src=data; prev.style.display="block";
  document.getElementById("btns").innerHTML=`
  <button class="blue" onclick="add('${data}')">追加</button>
  <button class="orange" onclick="retake()">撮り直し</button>
  `;
 }
 
-/* ================= 追加 ================= */
-
 function add(d){
-
- if(state.isAnswer){
-  state.aImgs.push(d);
- }else{
-  state.tempImgs.push(d);
- }
-
+ if(state.isAnswer){state.aImgs.push(d);}else{state.tempImgs.push(d);}
  video.style.display="block";
  document.getElementById("prev").style.display="none";
  document.getElementById("btns").innerHTML="";
@@ -307,15 +224,10 @@ function retake(){
  document.getElementById("btns").innerHTML="";
 }
 
-/* ================= 編集 ================= */
+/* ===== 編集 ===== */
 
 function goEdit(){
-
- if(!state.tempImgs.length){
-  alert("画像なし");
-  return;
- }
-
+ if(!state.tempImgs.length)return alert("画像なし");
  save();
  state.screen="edit";
  state.editIndex=0;
@@ -325,42 +237,27 @@ function goEdit(){
 let drawing=false;
 
 function edit(){
-
  app.innerHTML=`
  <div class="wrap">
   <button class="arrow left" onclick="prevImg()">←</button>
   <canvas id="canvas"></canvas>
   <button class="arrow right" onclick="nextImg()">→</button>
  </div>
-
  <button class="green" onclick="finishEdit()">完了</button>
  `;
-
  canvas=document.getElementById("canvas");
  ctx=canvas.getContext("2d");
 
- canvas.addEventListener("touchstart",e=>{
-  drawing=true;
-  draw(e);
- },{passive:false});
-
- canvas.addEventListener("touchmove",e=>{
-  if(drawing) draw(e);
- },{passive:false});
-
- canvas.addEventListener("touchend",()=>{
-  drawing=false;
- });
+ canvas.addEventListener("touchstart",e=>{drawing=true;draw(e)},{passive:false});
+ canvas.addEventListener("touchmove",e=>{if(drawing)draw(e)},{passive:false});
+ canvas.addEventListener("touchend",()=>drawing=false);
 
  show();
 }
 
 function show(){
-
  let img=new Image();
-
  img.src=state.tempImgs[state.editIndex];
-
  img.onload=()=>{
   canvas.width=img.width;
   canvas.height=img.height;
@@ -369,87 +266,51 @@ function show(){
 }
 
 function draw(e){
-
  e.preventDefault();
-
  let r=canvas.getBoundingClientRect();
-
  let x=(e.touches[0].clientX-r.left)*(canvas.width/r.width);
  let y=(e.touches[0].clientY-r.top)*(canvas.height/r.height);
-
  ctx.fillStyle="red";
  ctx.fillRect(x,y,5,5);
 }
 
-function nextImg(){
- saveEdit();
- if(state.editIndex<state.tempImgs.length-1){
-  state.editIndex++;
- }
- show();
-}
-
-function prevImg(){
- saveEdit();
- if(state.editIndex>0){
-  state.editIndex--;
- }
- show();
-}
-
-function saveEdit(){
- state.tempImgs[state.editIndex]=canvas.toDataURL();
-}
+function nextImg(){saveEdit();if(state.editIndex<state.tempImgs.length-1)state.editIndex++;show();}
+function prevImg(){saveEdit();if(state.editIndex>0)state.editIndex--;show();}
+function saveEdit(){state.tempImgs[state.editIndex]=canvas.toDataURL();}
 
 function finishEdit(){
-
  saveEdit();
-
  state.qImgs=state.qImgs.concat(state.tempImgs);
-
  state.tempImgs=[];
  state.isAnswer=true;
-
  state.screen="cam";
  render();
 }
 
-/* ================= 送信 ================= */
+/* ===== 送信（Firebase） ===== */
 
 async function send(){
-
  try{
   showLoading();
 
-  await fetch(URL,{
-   method:"POST",
-   body:JSON.stringify({
+  await addDoc(collection(db,"questions"),{
     questions:state.qImgs,
-    answers:state.aImgs
-   })
+    answers:state.aImgs,
+    date:new Date().toISOString()
   });
 
  }catch(e){
-  alert("送信失敗");
+  alert("保存失敗");
  }
 
  hideLoading();
 
- state={
-  screen:"home",
-  reviewMode:"",
-  qImgs:[],
-  aImgs:[],
-  tempImgs:[],
-  isAnswer:false
- };
-
+ state={screen:"home",reviewMode:"",qImgs:[],aImgs:[],tempImgs:[],isAnswer:false};
  history=[];
-
  render();
 }
 
-/* ================= 保存 ================= */
+/* ===== 保存 ===== */
 
 function saveProg(){
  localStorage.setItem("save",JSON.stringify({
@@ -463,7 +324,6 @@ function saveProg(){
 
 function loadProg(){
  let d=JSON.parse(localStorage.getItem("save")||"{}");
-
  state.reviewIndex=d.reviewIndex||0;
  state.reviewSub=d.reviewSub||0;
  state.reviewMode=d.reviewMode||"all";
@@ -475,48 +335,33 @@ function startContinue(){
  startReview(state.reviewMode,true);
 }
 
-/* ================= 取得 ================= */
+/* ===== 取得（Firebase） ===== */
 
 async function fetchData(){
- let res=await fetch(URL);
- return await res.json();
+ let snap=await getDocs(collection(db,"questions"));
+ let data=[];
+ snap.forEach(doc=>data.push(doc.data()));
+ return data;
 }
 
-/* ================= 復習 ================= */
+/* ===== 復習 ===== */
 
 async function startReview(mode,isContinue=false){
-
  save();
  state.reviewMode=mode;
-
  showLoading();
 
  let data=await fetchData();
 
  let now=new Date();
-
- function get(n){
-  let d=new Date();
-  d.setDate(now.getDate()-n);
-  return d.toDateString();
- }
-
- function same(a,b){
-  return a===b;
- }
+ let get=n=>{let d=new Date();d.setDate(now.getDate()-n);return d.toDateString();}
+ let same=(a,b)=>a===b;
 
  state.reviewData=data.filter(x=>{
-
   let d=new Date(x.date).toDateString();
-
   if(mode==="normal") return same(d,get(1));
-
-  if(mode==="alpha")
-   return [3,5,14].some(n=>same(d,get(n)));
-
-  if(mode==="plus")
-   return [1,3,5,14].some(n=>same(d,get(n)));
-
+  if(mode==="alpha") return [3,5,14].some(n=>same(d,get(n)));
+  if(mode==="plus") return [1,3,5,14].some(n=>same(d,get(n)));
   return true;
  });
 
@@ -527,34 +372,18 @@ async function startReview(mode,isContinue=false){
  }
 
  state.screen="review";
-
  hideLoading();
  render();
 }
 
-/* ================= レビュー ================= */
+/* ===== レビュー ===== */
 
 function review(){
-
  let d=state.reviewData[state.reviewIndex];
-
- if(!d){
-  app.innerHTML="データなし";
-  return;
- }
+ if(!d)return app.innerHTML="データなし";
 
  let list=(state.mode==="q")?d.questions:d.answers;
-
- if(!list || !list.length){
-  app.innerHTML="データなし";
-  return;
- }
-
- let totalSet=state.reviewData.length;
- let currentSet=state.reviewIndex+1;
-
- let totalPage=list.length;
- let currentPage=state.reviewSub+1;
+ if(!list||!list.length)return app.innerHTML="データなし";
 
  let saveBtn=(state.reviewMode==="all")
   ? `<button class="dark" onclick="saveProg()">保存</button>`
@@ -562,7 +391,7 @@ function review(){
 
  app.innerHTML=`
  <div style="margin-top:10px;font-size:14px;">
- セット ${currentSet}/${totalSet}（${currentPage}/${totalPage}）
+ セット ${state.reviewIndex+1}/${state.reviewData.length}（${state.reviewSub+1}/${list.length}）
  </div>
 
  <div class="wrap" id="swipeArea">
@@ -575,26 +404,16 @@ function review(){
 
  let area=document.getElementById("swipeArea");
 
- area.addEventListener("touchstart",e=>{
-  startX=e.touches[0].clientX;
- });
-
- area.addEventListener("touchend",e=>{
-  endX=e.changedTouches[0].clientX;
-  handleSwipe();
- });
+ area.addEventListener("touchstart",e=>{startX=e.touches[0].clientX;});
+ area.addEventListener("touchend",e=>{endX=e.changedTouches[0].clientX;handleSwipe();});
 }
 
-/* ================= スワイプ ================= */
+/* ===== スワイプ ===== */
 
 function handleSwipe(){
-
  let diff=endX-startX;
-
- if(Math.abs(diff)<50) return;
-
+ if(Math.abs(diff)<50)return;
  let img=document.getElementById("slideImg");
-
  if(diff<0){
   img.style.transform="translateX(-100%)";
   setTimeout(nextR,200);
@@ -605,21 +424,17 @@ function handleSwipe(){
 }
 
 function nextR(){
-
  let list=getList();
-
  if(state.reviewSub<list.length-1){
   state.reviewSub++;
  }else if(state.reviewIndex<state.reviewData.length-1){
   state.reviewIndex++;
   state.reviewSub=0;
  }
-
  render();
 }
 
 function prevR(){
-
  if(state.reviewSub>0){
   state.reviewSub--;
  }else if(state.reviewIndex>0){
@@ -627,7 +442,6 @@ function prevR(){
   let list=getList();
   state.reviewSub=list.length-1;
  }
-
  render();
 }
 
