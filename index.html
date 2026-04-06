@@ -46,19 +46,19 @@ button{
  z-index:1000;
 }
 
-/* フル表示 */
+/* 表示 */
 video, img, canvas{
  width:100%;
  height:auto;
  max-height:100vh;
  object-fit:contain;
  border-radius:12px;
- margin:10px auto;
+ margin:0;
  display:block;
  background:#000;
 }
 
-/* カメラだけ全画面 */
+/* カメラ */
 .full{
  position:fixed;
  top:0;
@@ -67,6 +67,17 @@ video, img, canvas{
  height:100%;
  object-fit:cover;
  z-index:1;
+}
+
+/* プレビュー（静止画） */
+#prev{
+ position:fixed;
+ top:0;
+ left:0;
+ width:100%;
+ height:100%;
+ object-fit:contain;
+ z-index:5;
 }
 
 /* シャッター */
@@ -90,6 +101,18 @@ video, img, canvas{
  left:50%;
  transform:translateX(-50%);
  width:90%;
+ z-index:3000;
+}
+
+/* 編集ボタン（右上） */
+#editFloat{
+ position:fixed;
+ top:15px;
+ right:15px;
+ background:rgba(0,0,0,0.4);
+ color:#fff;
+ padding:10px 14px;
+ border-radius:20px;
  z-index:3000;
 }
 
@@ -206,7 +229,6 @@ back.onclick=()=>{
  }
 };
 
-/* スキャン */
 function enhanceText(ctx,w,h){
  let img=ctx.getImageData(0,0,w,h);
  let d=img.data;
@@ -249,22 +271,20 @@ async function cam(){
  <img id="prev" style="display:none">
  <button class="captureBtn" onclick="capture()"></button>
  <div id="btns"></div>
- ${!state.isAnswer ? '<button class="green" onclick="goEdit()">編集</button>' : ''}
+ ${!state.isAnswer ? '<div id="editFloat" onclick="goEdit()">編集</div>' : ''}
  ${state.isAnswer ? '<button class="red" onclick="send()">送信</button>' : ''}
  `;
 
  video=document.getElementById("video");
 
  let s=await navigator.mediaDevices.getUserMedia({
-  video:{
-   facingMode:"environment"
-  }
+  video:{facingMode:"environment"}
  });
 
  video.srcObject=s;
 }
 
-/* 撮影（修正済み） */
+/* 撮影 */
 function capture(){
  let c=document.createElement("canvas");
  let cx=c.getContext("2d");
@@ -284,25 +304,37 @@ function capture(){
  prev.src=lastShot;
  prev.style.display="block";
 
+ video.style.display="none";
+
  document.getElementById("btns").innerHTML=`
  <button class="blue" onclick="add()">追加</button>
  <button class="orange" onclick="retake()">撮り直し</button>
  `;
 }
 
+/* 追加 */
 function add(){
  if(!lastShot)return;
+
  if(state.isAnswer){state.aImgs.push(lastShot);}
  else{state.tempImgs.push(lastShot);}
+
  lastShot="";
+
+ document.getElementById("prev").style.display="none";
+ video.style.display="block";
+ document.getElementById("btns").innerHTML="";
 }
 
+/* 撮り直し */
 function retake(){
  lastShot="";
  document.getElementById("prev").style.display="none";
+ video.style.display="block";
+ document.getElementById("btns").innerHTML="";
 }
 
-/* 編集 */
+/* 編集（元のまま） */
 function goEdit(){
  if(!state.tempImgs.length)return alert("画像なし");
  save();
@@ -502,7 +534,6 @@ function review(){
  area.addEventListener("touchend",e=>{endX=e.changedTouches[0].clientX;handleSwipe();});
 }
 
-/* スワイプ */
 function handleSwipe(){
  let diff=endX-startX;
  if(Math.abs(diff)<50)return;
@@ -543,7 +574,7 @@ function toggle(){
  render();
 }
 
-/* ボタン有効化 */
+/* ボタン */
 window.goCam=goCam;
 window.startReview=startReview;
 window.startContinue=startContinue;
